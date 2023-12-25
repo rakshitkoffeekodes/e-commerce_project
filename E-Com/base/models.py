@@ -1,4 +1,6 @@
 from django.db import models
+# from .models import *
+from .. import seller
 
 
 # Create your models here.
@@ -46,7 +48,7 @@ class BuyerAddress(models.Model):
 
 
 class BuyerCart(models.Model):
-    product = models.ForeignKey(BuyerAddress, on_delete=models.CASCADE, null=True)
+    product = models.ForeignKey(seller, on_delete=models.CASCADE, null=True)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=0)
     date_added = models.DateTimeField(auto_now_add=True)

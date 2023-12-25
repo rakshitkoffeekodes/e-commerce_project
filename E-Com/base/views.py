@@ -1,21 +1,11 @@
 
-from django.shortcuts import render
-from rest_framework.decorators import api_view
+
 from rest_framework.response import Response
 from .serlializers import *
 from .models import *
 from rest_framework import status
-import json
-from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_protect
-from django.shortcuts import get_object_or_404
-from rest_framework.authentication import BasicAuthentication
-from rest_framework.permissions import *
 from rest_framework.decorators import *
-from rest_framework.authentication import BasicAuthentication
-from django.contrib.auth import authenticate
-from rest_framework_jwt.settings import api_settings
 from django.contrib.auth.models import User
 # Create your views here.
 
@@ -176,8 +166,7 @@ def user_view_product(request):
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
 
-# ("street_address", "apartment_address", "pincode", "city", "select_state", "ord_rec_name",
-#                   "ord_rec_mobile_no")
+
 @api_view(['POST'])
 def user_insert_address(request):
     street_address = request.POST["street_address"]
@@ -257,13 +246,35 @@ def user_delete_address(request):
 
 @api_view(['POST'])
 def user_insert_cart(request):
-    address_id=request.POST["address_id"]
+
+    buyer_id = request.POST.get('buyer_id')
+    address_id = request.POST["address_id"]
+    qty = request.POST["qty"]
+    product_size=request.POST["product_size"]
+    status=request.POST["status"]
+    total = request.POST["total"]
     product = BuyerAddress.objects.get(address_id=address_id)
 
-    try:
-        # member = BuyerAddress.objects.get(address_id=address_id)
-        # member.delete()
-        return JsonResponse({'success': 'str(id) + "Record has been successfully deleted"',  'status': status.HTTP_200_OK})
 
-    except BuyerAddress.DoesNotExist:
-        return JsonResponse({"message": "Invalid enter id By user "})
+    try:
+        # Validate buyer_id and create a BuyerCart instance
+        if buyer_id:
+            buyer_cart = BuyerCart(buyer_id=buyer_id,product=product,qty=qty,
+                                   product_size=product_size,status=status,total=total)
+            buyer_cart.save()
+            return Response("BuyerCart created successfully.")
+        else:
+            return Response("Invalid buyer_id provided.")
+    except Exception as e:
+        return Response(f"Error: {str(e)}")
+
+
+@api_view(['POST'])
+def user_view_cart(request):
+    member = BuyerCart.objects.all()
+
+    try:
+        serializer = BuyerCart(member, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})

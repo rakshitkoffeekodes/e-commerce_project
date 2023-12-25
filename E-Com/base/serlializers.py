@@ -22,4 +22,4 @@ class BuyerCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BuyerCart
-        fields = ("buyer","qty", "date_added", "total", "product")
+        fields = ("qty" "product")
