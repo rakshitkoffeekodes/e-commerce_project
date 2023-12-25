@@ -15,16 +15,8 @@ class product(admin.ModelAdmin):
         'product_seller')
 
 
-class buyer(admin.ModelAdmin):
-    list_display = ('id', 'name')
-
-
-class details(admin.ModelAdmin):
-    list_display = ('id', 'order', 'cart_id', 'buyer')
-
-
-class cart(admin.ModelAdmin):
-    list_display = ('id', 'product', 'buyer', 'status')
+# class details(admin.ModelAdmin):
+#     list_display = ('id', 'order', 'cart_id', 'buyer')
 
 
 class order(admin.ModelAdmin):
@@ -37,9 +29,7 @@ class accept(admin.ModelAdmin):
 
 admin.site.register(Register, register)
 admin.site.register(Product, product)
-admin.site.register(Buyer, buyer)
-admin.site.register(Details, details)
-admin.site.register(Cart, cart)
+# admin.site.register(Details, details)
 admin.site.register(Order, order)
 admin.site.register(Accept, accept)
 admin.site.register(Cancel)

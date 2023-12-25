@@ -2,7 +2,10 @@ import calendar
 import os
 import datetime
 import random
+
 import qrcode
+
+from base.models import *
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db.models import Q
@@ -17,11 +20,11 @@ from .serilizers import *
 
 @api_view(['POST'])
 def register(request):
-    first_name = request.POST['First Name']
-    last_name = request.POST['Last Name']
-    email = request.POST['Email']
-    password = request.POST['Password']
-    conform_password = request.POST['Conform Password']
+    first_name = request.POST['first_name']
+    last_name = request.POST['last_name']
+    email = request.POST['email']
+    password = request.POST['password']
+    conform_password = request.POST['confirm_password']
     try:
         if password == conform_password:
             Register.objects.create(
@@ -39,8 +42,8 @@ def register(request):
 
 @api_view(['POST'])
 def login(request):
-    email = request.POST['Email']
-    password = request.POST['Password']
+    email = request.POST['email']
+    password = request.POST['password']
 
     try:
         seller_user = Register.objects.get(email=email)
@@ -81,12 +84,12 @@ def profile(request):
 
 @api_view(['POST'])
 def update_profile(request):
-    profile_picture = request.FILES.get('Profile Image', '')
-    first_name = request.POST.get('First name', '')
-    last_name = request.POST.get('Last name', '')
+    profile_picture = request.FILES.get('profile_image', '')
+    first_name = request.POST.get('first_name', '')
+    last_name = request.POST.get('last_name', '')
     email = request.POST.get('email', '')
-    mobile_no = request.POST.get('Mobile Number', '')
-    address = request.POST.get('Address', '')
+    mobile_no = request.POST.get('mobile_no', '')
+    address = request.POST.get('address', '')
 
     try:
         seller_user = Register.objects.get(email=request.session['email'])
@@ -111,14 +114,14 @@ def update_profile(request):
 
 @api_view(['POST'])
 def add_product(request):
-    product_category = request.POST['Product Category']
-    product_items = request.POST['Product Item']
-    product_images = request.FILES.getlist('Product Images')
-    SKU = request.POST['SKU ID']
-    product_name = request.POST['Product Name']
-    product_price = request.POST['Product Price']
-    product_sale_price = request.POST['Product Sale Price']
-    product_quantity = request.POST['Product Quantity']
+    product_category = request.POST['product_category']
+    product_items = request.POST['product_items']
+    product_images = request.FILES.getlist('product_images')
+    SKU = request.POST['SKU']
+    product_name = request.POST['product_name']
+    product_price = request.POST['product_price']
+    product_sale_price = request.POST['product_sale_price']
+    product_quantity = request.POST['product_quantity']
     product_branding = request.POST['Product Brand']
     product_tags = request.POST['Product Tags']
     product_size = request.POST['Product Size']
@@ -288,8 +291,8 @@ def delete_product(request):
 def view_order(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
-        buyer_order = Details.objects.filter(cart__status=True)
-        buyer_all_order = Order.objects.filter(cart__product__product_seller=seller_user, cart__status=True).only(
+        buyer_order = Checkout_details.objects.filter(cart__status=True)
+        buyer_all_order = Order.objects.filter(cart__cart__product__product_seller=seller_user, cart__status=True).only(
             'order')
         list2 = [i.order for i in buyer_all_order]
         for i in buyer_order:
@@ -522,19 +525,18 @@ def view_accept_order(request):
 
 @api_view(['GET'])
 def order_label(request):
-    primary_key = request.POST['Label ID']
-    seller_user = Register.objects.get(email=request.session['email'])
-    label = Accept.objects.get(id=primary_key, status=True, order__product__product_seller=seller_user)
-    data = {
-        'Customer Name': label.buyer.name,
-        'Customer Address': label.buyer
-    }
-    return JsonResponse({'Message': 'HI'})
-
-# path = 'D:\Task\E-Com\media\code'
-#    image = qrcode.make('Hello, World')
-#    name = "bcode.png"
-#    image.save(os.path.join(path, name))
-#    path1 = request.META['HTTP_HOST']
-#    path2 = ['http://' + path1 + '/media/code/bcode.png']
-#    return JsonResponse({'Message': path2})
+    # primary_key = request.POST['Label ID']
+    # seller_user = Register.objects.get(email=request.session['email'])
+    # label = Accept.objects.get(id=primary_key, status=True, order__product__product_seller=seller_user)
+    # data = {
+    #     'Customer Name': label.buyer.name,
+    #     'Customer Address': label.buyer
+    # }
+    # return JsonResponse({'Message': 'HI'})
+        path = 'D:\Task\E-Com\media\code'
+        image = qrcode.make('Hello, World')
+        name = "bcode.png"
+        image.save(os.path.join(path, name))
+        path1 = request.META['HTTP_HOST']
+        path2 = ['http://' + path1 + '/media/code/bcode.png']
+        return JsonResponse({'Message': path2})
