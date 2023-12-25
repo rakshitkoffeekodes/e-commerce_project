@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'seller',
     'rest_framework',
+    'base',
 ]
 
 MIDDLEWARE = [
@@ -78,7 +79,7 @@ WSGI_APPLICATION = 'E-Commerce.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'e-commerce',
+        'NAME': 'ecommerce',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': 'localhost',
