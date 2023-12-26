@@ -1,5 +1,4 @@
 from django.db import models
-from seller import *
 from seller.models import *
 
 
@@ -9,7 +8,7 @@ class BuyerRegistration(models.Model):
     user_firstname = models.CharField(max_length=255)
     user_lastname = models.CharField(max_length=255)
     user_address = models.TextField(max_length=255)
-    user_photo = models.FileField(default='defult.jpg', upload_to='media/', null=True)
+    user_photo = models.FileField(default='defult.jpg', upload_to='buyer/', null=True)
     user_mobile_no = models.CharField(max_length=12, unique=True)
     user_email_id = models.CharField(max_length=255, unique=True)
     user_password = models.CharField(max_length=16)
@@ -19,16 +18,17 @@ class BuyerRegistration(models.Model):
 
 
 class BuyerCart(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
+    product = models.ForeignKey("seller.Product", on_delete=models.CASCADE, null=True)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=0)
     date_added = models.DateTimeField(auto_now_add=True)
     total = models.IntegerField(default=0)
+    product_color = models.CharField(max_length=50, null=True)
     product_size = models.CharField(max_length=50, null=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.buyer
+        return str(self.buyer)
 
 
 class Checkout_details(models.Model):
@@ -58,11 +58,17 @@ class Checkout_details(models.Model):
     select_state = models.CharField(max_length=40, choices=SELECT_STATE)
     ord_rec_name = models.CharField(max_length=255)
     ord_rec_mobile_no = models.CharField(max_length=12)
+    status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.buyer
+        return str(self.buyer)
 
-# class Payment(models.Model):
-#     order = models.CharField(max_length=100)
-#     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
-#     details = models.ForeignKey(BuyerAddress, on_delete=models.CASCADE)
+
+class Payment(models.Model):
+    order = models.CharField(max_length=100)
+    cart = models.ForeignKey(BuyerCart, on_delete=models.CASCADE, null=True)
+    buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
+    details = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.order

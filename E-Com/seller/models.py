@@ -1,9 +1,6 @@
 from base.models import *
-from base.models import Checkout_details
 from django.db import models
 
-
-# Create your models here.
 
 class Register(models.Model):
     profile_picture = models.FileField(upload_to="media/", default="default.jpg")
@@ -63,31 +60,15 @@ class Product(models.Model):
     product_color = models.CharField(max_length=50)
     product_fabric = models.CharField(max_length=50)
     product_description = models.TextField()
+    product_date = models.DateTimeField(null=True)
     product_seller = models.ForeignKey(Register, on_delete=models.CASCADE)
 
-
-# # ==================Check Out Details Model Table=====================
-# class Details(models.Model):
-#     firstname = models.CharField(max_length=50)
-#     lastname = models.CharField(max_length=50)
-#     country = models.CharField(max_length=25)
-#     address = models.CharField(max_length=200)
-#     second_address = models.CharField(max_length=200, null=True)
-#     city = models.CharField(max_length=20)
-#     state = models.CharField(max_length=25)
-#     postcode = models.IntegerField(default=0)
-#     phone = models.CharField(max_length=124)
-#     email = models.CharField(max_length=50)
-#     order = models.CharField(max_length=100, null=True)
-#     cart = models.ForeignKey(BuyerCart, on_delete=models.CASCADE, null=True)
-#     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
-
-# def __str__(self):
-#     return self.order
+    def __str__(self):
+        return self.product_name
 
 
 class Order(models.Model):
-    cart = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
+    details = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     qty = models.IntegerField(default=0)
@@ -130,7 +111,3 @@ class Cancel(models.Model):
 
     def __str__(self):
         return str(self.order)
-
-
-class Barcode(models.Model):
-    code = models.CharField(max_length=100)

@@ -22,3 +22,4 @@ class BuyerCartadmin(admin.ModelAdmin):
 admin.site.register(BuyerRegistration, BuyerRegistrationadmin)
 admin.site.register(Checkout_details, BuyerAddressadmin)
 admin.site.register(BuyerCart, BuyerCartadmin)
+admin.site.register(Payment)

@@ -31,8 +31,3 @@ class CancelSerializer(serializers.ModelSerializer):
         model = Cancel
         fields = '__all__'
 
-
-class BarcodeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Barcode
-        fields = '__all__'

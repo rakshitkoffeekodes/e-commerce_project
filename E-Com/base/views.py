@@ -142,7 +142,7 @@ def user_insert_address(request):
     ord_rec_mobile_no = request.POST["ord_rec_mobile_no"]
 
     try:
-        member = BuyerAddress(street_address=street_address, apartment_address=apartment_address,
+        member = Checkout_details(street_address=street_address, apartment_address=apartment_address,
                               pincode=pincode, city=city, ord_rec_mobile_no=ord_rec_mobile_no,
                               select_state=select_state, ord_rec_name=ord_rec_name)
         member.save()
@@ -154,7 +154,7 @@ def user_insert_address(request):
 
 @api_view(['POST'])
 def user_view_address(request):
-    member = BuyerAddress.objects.all()
+    member = Checkout_details.objects.all()
 
     try:
         serializer = BuyerAddressSerializer(member, many=True)
@@ -175,7 +175,7 @@ def user_update_address(request):
     ord_rec_mobile_no = request.POST.get("ord_rec_mobile_no")
 
     try:
-        member = BuyerAddress.objects.get(address_id=address_id)
+        member = Checkout_details.objects.get(address_id=address_id)
         if not street_address == '':
             member.street_address = street_address
         if not apartment_address == '':
@@ -201,25 +201,24 @@ def user_update_address(request):
 def user_delete_address(request):
     address_id = request.POST["address_id"]
     try:
-        member = BuyerAddress.objects.get(address_id=address_id)
+        member = Checkout_details.objects.get(address_id=address_id)
         member.delete()
         return JsonResponse(
             {'success': 'str(id) + "Record has been successfully deleted"', 'status': status.HTTP_200_OK})
 
-    except BuyerAddress.DoesNotExist:
+    except Checkout_details.DoesNotExist:
         return JsonResponse({"message": "Invalid enter id By user "})
 
 
 @api_view(['POST'])
 def user_insert_cart(request):
-    address_id = request.POST["address_id"]
-    product = BuyerAddress.objects.get(address_id=address_id)
-
+    qty = request.POST['qty']
+    total = request.POST['total']
+    product_size = request.POST['product_size']
     try:
-        # member = BuyerAddress.objects.get(address_id=address_id)
-        # member.delete()
-        return JsonResponse(
-            {'success': 'str(id) + "Record has been successfully deleted"', 'status': status.HTTP_200_OK})
+        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
 
-    except BuyerAddress.DoesNotExist:
-        return JsonResponse({"message": "Invalid enter id By user "})
+
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
+
