@@ -1,16 +1,22 @@
 import os
 import datetime
 import random
+
+import openpyxl
 # from fpdf import FPDF
 import qrcode
+import xlsxwriter
+from openpyxl.reader.excel import load_workbook
+
 from base.models import *
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import make_password, check_password
 from .serilizers import *
+from django.conf import settings
+from django.core.mail import send_mail
 
 
 # Create your views here.
@@ -22,18 +28,47 @@ def register(request):
     last_name = request.POST['last_name']
     email = request.POST['email']
     password = request.POST['password']
-    conform_password = request.POST['confirm_password']
+    confirm_password = request.POST['confirm_password']
     try:
-        if password == conform_password:
-            Register.objects.create(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                password=make_password(password)
-            )
-            return JsonResponse({'Message': f'Register Success {first_name}'})
+        if password == confirm_password:
+            global user_otp, temp
+            user_otp = random.randint(100000, 999999)
+            subject = 'One Time Password (OTP) Confirmation'
+            message = f'''Hi {first_name} {last_name},
+                        This email confirms your one-time password (OTP) for E-Commerce Site.
+                        Your OTP is: {user_otp}
+                        Thank you,
+                        E-Commerce Site'''
+            email_from = settings.EMAIL_HOST_USER
+            recipient_list = [email, ]
+            send_mail(subject, message, email_from, recipient_list)
+            temp = {
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "password": password
+            }
+            return JsonResponse({'Message': 'OTP Sending Successfully.'})
         else:
             return JsonResponse({'Message': 'Password Not Match.'})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
+
+
+@api_view(['POST'])
+def otp_verification(request):
+    otp = request.POST['otp']
+    try:
+        if user_otp == int(otp):
+            Register.objects.create(
+                first_name=temp["first_name"],
+                last_name=temp["last_name"],
+                email=temp["email"],
+                password=make_password(temp["password"])
+            )
+            return JsonResponse({'Message': 'Register Success'})
+        else:
+            return JsonResponse({'Message': 'OTP is not match.'})
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
 
@@ -115,6 +150,7 @@ def add_product(request):
     product_category = request.POST['product_category']
     product_items = request.POST['product_items']
     product_images = request.FILES.getlist('product_images')
+    print(product_images)
     SKU = request.POST['SKU']
     product_name = request.POST['product_name']
     product_price = request.POST['product_price']
@@ -149,11 +185,100 @@ def add_product(request):
         product_add.product_description = product_description
         product_add.product_date = datetime.datetime.now()
         product_add.product_seller = seller_user
-        product_add.save()
+        # product_add.save()
         return JsonResponse({'message': 'Product Add Successfully.'})
 
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
+
+
+@api_view(['POST'])
+def bulk_upload_catalog(request):
+    product_category = request.POST['product_category'].upper()
+    product_items = request.POST['product_items'].upper()
+    product_image = request.FILES.getlist('product_image')
+    name = random.randint(00000, 99999)
+    workbook = xlsxwriter.Workbook(f'D:\\Task\\E-Com\\media\\file\\Bulk-Catalog-{name}.xlsx')
+    worksheet = workbook.add_worksheet()
+
+    product_image = [
+        default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
+        for image in product_image]
+    path = request.META['HTTP_HOST']
+    path1 = ['http://' + path + '/media/' + i for i in product_image]
+    expenses = (
+        ['Images1', 'Images2', 'Images3', 'Images4', 'SKU', 'Name', 'Price', 'Sale Price', 'Quantity', 'product_category', 'product_items', 'Branding',
+         'Tags', 'Size', 'Color', 'Fabric', 'Description'])
+    row = 1
+    for col_num, value in enumerate(expenses):
+        for index, i in enumerate(path1):
+            if value == 'product_category':
+                worksheet.write(0, col_num, value)
+                worksheet.write(row + index, col_num, product_category)
+            elif value == 'product_items':
+                worksheet.write(0, col_num, value)
+                worksheet.write(row + index, col_num, product_items)
+            elif value == 'Images1':
+                worksheet.write(0, col_num, value)
+                worksheet.write(row + index, col_num, i)
+                print(i)
+        else:
+            worksheet.write(0, col_num, value)
+    path = request.META['HTTP_HOST']
+    path1 = ['http://' + path + '/media/file/' + f'Bulk-Catalog-{name}.xlsx']
+    workbook.close()
+    return JsonResponse({'Execl File Link': path1})
+
+
+@api_view(['POST'])
+def get_image_link(request):
+    upload_image = request.FILES.getlist('upload_image')
+    pass
+
+
+@api_view(['POST'])
+def upload_catalog_file(request):
+    seller_user = Register.objects.get(email=request.session['email'])
+    upload_file = request.FILES['upload_file']
+    print(upload_file)
+    list1 = []
+    # row = 1
+    directory = 'D:\\Task\\E-Com\\media\\file'
+    file_path = os.path.join(directory, str(upload_file))
+    if os.path.exists(file_path):
+        wb = openpyxl.load_workbook(upload_file)
+        ws = wb.active
+        max_row = ws.max_row
+        for i in range(2, max_row + 1):
+            row = ws[i]
+            for cell in row:
+                product_add = Product()
+
+                product_add.product_images = [
+                    default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.replace(' ', '_')),
+                                         open(image, 'rb'))
+                    for image in os.path.basename(cell.value).replace('"', '').split(',')
+                ]
+                product_add.SKU = cell.value
+                product_add.product_name = cell.value
+                product_add.product_price = cell.value
+                product_add.product_sale_price = cell.value
+                product_add.product_quantity = cell.value
+                product_add.product_category = cell.value
+                product_add.product_items = cell.value
+                product_add.product_branding = cell.value
+                product_add.product_tags = cell.value
+                product_add.product_size = cell.value
+                product_add.product_color = cell.value
+                product_add.product_fabric = cell.value
+                product_add.product_description = cell.value
+                product_add.product_date = datetime.datetime.now()
+                product_add.product_seller = seller_user
+                # product_add.save()
+        print(product_add)
+    else:
+        print('The file does not exist in the directory.')
+    return JsonResponse({'Message': 'hi'})
 
 
 @api_view(['GET'])
@@ -531,15 +656,8 @@ def ready_to_ship(request):
         return JsonResponse({'Message': e.__str__()})
 
 
-def label_data(path2, label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax):
-    # pdf = FPDF()
-    # pdf.add_page()
-    # # set font style and size for pdf
-    # pdf.set_font('Arial', size=16)
-    # pdf.cell(200, 10, txt="'QR Code': {{path2}}", ln=2, align='C')
-    # pdf.output('Attempt.pdf')
+def label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax):
     data = {
-        'QR Code': path2,
         'Customer Name': label.buyer.user_firstname + ' ' + label.buyer.user_lastname,
         'Customer Address': label.buyer.user_address,
         'Seller Name': seller_user.first_name + seller_user.last_name,
@@ -581,13 +699,7 @@ def shipping_label(request):
             elif label.order.product.product_category == 'ELECTRONICS':
                 tax = label.total * gst3 / 100
             total = tax + label.total
-            path = 'D:\Task\E-Com\media\code'
-            image = qrcode.make(label.order.order)
-            name = "bcode.png"
-            image.save(os.path.join(path, name))
-            path1 = request.META['HTTP_HOST']
-            path2 = ['http://' + path1 + '/media/code/bcode.png']
-            data = label_data(path2, label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax)
+            data = label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax)
             return JsonResponse({'Label Data': data})
 
         else:
@@ -601,13 +713,7 @@ def shipping_label(request):
                 elif label.order.product.product_category == 'ELECTRONICS':
                     tax = label.total * gst3 / 100
                 total = tax + label.total
-                path = 'D:\Task\E-Com\media\code'
-                image = qrcode.make(label.order.order)
-                name = "bcode.png"
-                image.save(os.path.join(path, name))
-                path1 = request.META['HTTP_HOST']
-                path2 = ['http://' + path1 + '/media/code/bcode.png']
-                data = label_data(path2, label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax)
+                data = label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax)
                 data_list.append(data)
             return JsonResponse({'Label Data': data_list})
     except Exception as e:

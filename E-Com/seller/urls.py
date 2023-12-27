@@ -3,11 +3,15 @@ from seller import views
 
 urlpatterns = [
     path('', views.register),
+    path('otp_verification/', views.otp_verification),
     path('login/', views.login),
     path('logout/', views.logout),
     path('profile/', views.profile),
     path('update_profile/', views.update_profile),
     path('add_product/', views.add_product),
+    path('bulk_upload_catalog/', views.bulk_upload_catalog),
+    path('get_image_link/', views.get_image_link),
+    path('upload_catalog_file/', views.upload_catalog_file),
     path('view_all_product/', views.view_all_product),
     path('update_product/', views.update_product),
     path('delete_product/', views.delete_product),
