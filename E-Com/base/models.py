@@ -72,3 +72,13 @@ class Payment(models.Model):
 
     def __str__(self):
         return self.order
+
+
+class Return (models.Model):
+    buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
+    order = models.ForeignKey(Payment, on_delete=models.CASCADE)
+    returns = models.CharField(max_length=100)
+    order_return_message = models.CharField(max_length=100, null='N/A')
+    return_shipping_Fee = models.IntegerField(default=0)
+    return_date = models.DateTimeField(null=True)
+    status = models.BooleanField(default=True)

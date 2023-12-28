@@ -8,7 +8,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class ProdcutSerializer(serializers.ModelSerializer):
+class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
@@ -30,4 +30,3 @@ class CancelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cancel
         fields = '__all__'
-

@@ -1,13 +1,8 @@
 import os
 import datetime
 import random
-
 import openpyxl
-# from fpdf import FPDF
-import qrcode
 import xlsxwriter
-from openpyxl.reader.excel import load_workbook
-
 from base.models import *
 from django.core.files.storage import default_storage
 from django.db.models import Q
@@ -115,12 +110,11 @@ def profile(request):
         return JsonResponse({'Message': e.__str__()})
 
 
-@api_view(['POST'])
+@api_view(['PUT'])
 def update_profile(request):
     profile_picture = request.FILES.get('profile_image', '')
     first_name = request.POST.get('first_name', '')
     last_name = request.POST.get('last_name', '')
-    email = request.POST.get('email', '')
     mobile_no = request.POST.get('mobile_no', '')
     address = request.POST.get('address', '')
 
@@ -132,8 +126,6 @@ def update_profile(request):
             seller_user.first_name = first_name
         if not last_name == '':
             seller_user.last_name = last_name
-        if not email == '':
-            seller_user.email = email
         if not mobile_no == '':
             seller_user.mobile_no = mobile_no
         if not address == '':
@@ -148,9 +140,8 @@ def update_profile(request):
 @api_view(['POST'])
 def add_product(request):
     product_category = request.POST['product_category']
-    product_items = request.POST['product_items']
+    product_sub_category = request.POST['product_sub_category']
     product_images = request.FILES.getlist('product_images')
-    print(product_images)
     SKU = request.POST['SKU']
     product_name = request.POST['product_name']
     product_price = request.POST['product_price']
@@ -165,13 +156,19 @@ def add_product(request):
 
     try:
         seller_user = Register.objects.get(email=request.session['email'])
-        product_add = Product()
-        product_add.product_category = product_category.upper()
-        product_add.product_items = product_items.upper()
-        product_add.product_images = [
+        p_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
+        id1 = random.choices(p_id, k=9)
+        product = "".join(id1)
+        product_image = [
             default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
             for image in product_images]
-        print(product_add.product_images)
+        path = request.META['HTTP_HOST']
+        path1 = ['http://' + path + '/media/' + i for i in product_image]
+        print(path1)
+        product_add = Product()
+        product_add.product_category = product_category.upper()
+        product_add.product_sub_category = product_sub_category.upper()
+        product_add.product_images = path1
         product_add.SKU = SKU
         product_add.product_name = product_name
         product_add.product_price = product_price
@@ -184,8 +181,9 @@ def add_product(request):
         product_add.product_fabric = product_fabric
         product_add.product_description = product_description
         product_add.product_date = datetime.datetime.now()
+        product_add.product = product
         product_add.product_seller = seller_user
-        # product_add.save()
+        product_add.save()
         return JsonResponse({'message': 'Product Add Successfully.'})
 
     except Exception as e:
@@ -195,90 +193,101 @@ def add_product(request):
 @api_view(['POST'])
 def bulk_upload_catalog(request):
     product_category = request.POST['product_category'].upper()
-    product_items = request.POST['product_items'].upper()
+    product_sub_category = request.POST['product_sub_category'].upper()
     product_image = request.FILES.getlist('product_image')
-    name = random.randint(00000, 99999)
-    workbook = xlsxwriter.Workbook(f'D:\\Task\\E-Com\\media\\file\\Bulk-Catalog-{name}.xlsx')
-    worksheet = workbook.add_worksheet()
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        name = random.randint(00000, 99999)
+        workbook = xlsxwriter.Workbook(f'D:\\Task\\E-Com\\media\\file\\Bulk-Catalog-{name}.xlsx')
+        worksheet = workbook.add_worksheet()
+        product_image = [
+            default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
+            for image in product_image]
+        path = request.META['HTTP_HOST']
+        path1 = ['http://' + path + '/media/' + i for i in product_image]
+        expenses = (
+            'Images1', 'Images2', 'Images3', 'Images4', 'SKU', 'Name', 'Price', 'Sale Price', 'Quantity',
+            'product_category', 'product_sub_category', 'Branding',
+            'Tags', 'Size', 'Color', 'Fabric', 'Description')
 
-    product_image = [
-        default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
-        for image in product_image]
-    path = request.META['HTTP_HOST']
-    path1 = ['http://' + path + '/media/' + i for i in product_image]
-    expenses = (
-        ['Images1', 'Images2', 'Images3', 'Images4', 'SKU', 'Name', 'Price', 'Sale Price', 'Quantity', 'product_category', 'product_items', 'Branding',
-         'Tags', 'Size', 'Color', 'Fabric', 'Description'])
-    row = 1
-    for col_num, value in enumerate(expenses):
-        for index, i in enumerate(path1):
-            if value == 'product_category':
+        row = 1
+        for col_num, value in enumerate(expenses):
+            for index, i in enumerate(path1):
+                if value == 'product_category':
+                    worksheet.write(0, col_num, value)
+                    worksheet.write(row + index, col_num, product_category)
+                elif value == 'product_sub_category':
+                    worksheet.write(0, col_num, value)
+                    worksheet.write(row + index, col_num, product_sub_category)
+                elif value == 'Images1':
+                    worksheet.write(0, col_num, value)
+                    worksheet.write(row + index, col_num, i)
                 worksheet.write(0, col_num, value)
-                worksheet.write(row + index, col_num, product_category)
-            elif value == 'product_items':
-                worksheet.write(0, col_num, value)
-                worksheet.write(row + index, col_num, product_items)
-            elif value == 'Images1':
-                worksheet.write(0, col_num, value)
-                worksheet.write(row + index, col_num, i)
-                print(i)
-        else:
-            worksheet.write(0, col_num, value)
-    path = request.META['HTTP_HOST']
-    path1 = ['http://' + path + '/media/file/' + f'Bulk-Catalog-{name}.xlsx']
-    workbook.close()
-    return JsonResponse({'Execl File Link': path1})
+        path = request.META['HTTP_HOST']
+        path2 = ['http://' + path + '/media/file/' + f'Bulk-Catalog-{name}.xlsx']
+        workbook.close()
+        return JsonResponse({'Execl File Link': path2})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
 
 
 @api_view(['POST'])
 def get_image_link(request):
     upload_image = request.FILES.getlist('upload_image')
-    pass
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        product_image = [
+            default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
+            for image in upload_image]
+        path = request.META['HTTP_HOST']
+        path1 = ['http://' + path + '/media/' + i for index, i in enumerate(product_image)]
+        return JsonResponse({'Message': path1})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
 
 
 @api_view(['POST'])
 def upload_catalog_file(request):
-    seller_user = Register.objects.get(email=request.session['email'])
     upload_file = request.FILES['upload_file']
-    print(upload_file)
-    list1 = []
-    # row = 1
-    directory = 'D:\\Task\\E-Com\\media\\file'
-    file_path = os.path.join(directory, str(upload_file))
-    if os.path.exists(file_path):
-        wb = openpyxl.load_workbook(upload_file)
-        ws = wb.active
-        max_row = ws.max_row
-        for i in range(2, max_row + 1):
-            row = ws[i]
-            for cell in row:
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        directory = 'D:\\Task\\E-Com\\media\\file'
+        file_path = os.path.join(directory, str(upload_file))
+        if os.path.exists(file_path):
+            wb = openpyxl.load_workbook(upload_file)
+            ws = wb.active
+            max_row = ws.max_row
+            for i in range(2, max_row + 1):
+                row = ws[i]
+                image_links = []
+                for cell in row:
+                    if cell.value and ('http' in str(cell.value) in str(cell.value)):
+                        image_links.append(str(cell.value))
+                p_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
+                id2 = random.choices(p_id, k=9)
+                product = "".join(id2)
                 product_add = Product()
-
-                product_add.product_images = [
-                    default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.replace(' ', '_')),
-                                         open(image, 'rb'))
-                    for image in os.path.basename(cell.value).replace('"', '').split(',')
-                ]
-                product_add.SKU = cell.value
-                product_add.product_name = cell.value
-                product_add.product_price = cell.value
-                product_add.product_sale_price = cell.value
-                product_add.product_quantity = cell.value
-                product_add.product_category = cell.value
-                product_add.product_items = cell.value
-                product_add.product_branding = cell.value
-                product_add.product_tags = cell.value
-                product_add.product_size = cell.value
-                product_add.product_color = cell.value
-                product_add.product_fabric = cell.value
-                product_add.product_description = cell.value
+                product_add.product_images = image_links
+                product_add.SKU = row[4].value
+                product_add.product_name = row[5].value
+                product_add.product_price = row[6].value
+                product_add.product_sale_price = row[7].value
+                product_add.product_quantity = row[8].value
+                product_add.product_category = row[9].value
+                product_add.product_sub_category = row[10].value
+                product_add.product_branding = row[11].value
+                product_add.product_tags = row[12].value
+                product_add.product_size = row[13].value
+                product_add.product_color = row[14].value
+                product_add.product_fabric = row[15].value
+                product_add.product_description = row[16].value
                 product_add.product_date = datetime.datetime.now()
+                product_add.product = product
                 product_add.product_seller = seller_user
-                # product_add.save()
-        print(product_add)
-    else:
-        print('The file does not exist in the directory.')
-    return JsonResponse({'Message': 'hi'})
+                product_add.save()
+            return JsonResponse({'Message': 'Bulk Catalog Upload Successfully.'})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
 
 
 @api_view(['GET'])
@@ -288,9 +297,6 @@ def view_all_product(request):
         all_product = Product.objects.filter(product_seller=seller_user)
         all_product_list = []
         for i in all_product:
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.product_images]
-            i.product_images = path1
             products = {
                 'product_images': i.product_images,
                 'SKU': i.SKU,
@@ -299,7 +305,7 @@ def view_all_product(request):
                 'product_sale_price': i.product_sale_price,
                 'product_quantity': i.product_quantity,
                 'product_category': i.product_category,
-                'product_items': i.product_items,
+                'product_sub_category': i.product_sub_category,
                 'product_branding': i.product_branding,
                 'product_tags': i.product_tags,
                 'product_size': i.product_size,
@@ -314,91 +320,72 @@ def view_all_product(request):
         return JsonResponse({'Message': e.__str__()})
 
 
-@api_view(['POST'])
+def product_update(request, update, product_images, SKU, product_name, product_branding, product_tags,
+                   product_color, product_fabric, product_description):
+    if len(product_images) != 0:
+        product_image = [
+            default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
+            for image in product_images]
+        path = request.META['HTTP_HOST']
+        path1 = ['http://' + path + '/media/' + i for i in product_image]
+        if not product_images == '':
+            update.product_images = path1
+        if not SKU == '':
+            update.SKU = SKU
+        if not product_name == '':
+            update.product_name = product_name
+        if not product_branding == '':
+            update.product_branding = product_branding
+        if not product_tags == '':
+            update.product_tags = product_tags
+        if not product_color == '':
+            update.product_color = product_color
+        if not product_fabric == '':
+            update.product_fabric = product_fabric
+        if not product_description == '':
+            update.product_description = product_description
+    else:
+        if not SKU == '':
+            update.SKU = SKU
+        if not product_name == '':
+            update.product_name = product_name
+        if not product_branding == '':
+            update.product_branding = product_branding
+        if not product_tags == '':
+            update.product_tags = product_tags
+        if not product_color == '':
+            update.product_color = product_color
+        if not product_fabric == '':
+            update.product_fabric = product_fabric
+        if not product_description == '':
+            update.product_description = product_description
+    update.save()
+    return update
+
+
+@api_view(['PUT'])
 def update_product(request):
     primary_key = request.POST['primary_key']
-    product_category = request.POST.get('product_category')
-    product_items = request.POST.get('product_items')
     product_images = request.FILES.getlist('product_images')
     SKU = request.POST.get('SKU')
     product_name = request.POST.get('product_name')
-    product_price = request.POST.get('product_price')
-    product_sale_price = request.POST.get('product_sale_price')
-    product_quantity = request.POST.get('product_quantity')
     product_branding = request.POST.get('product_branding')
     product_tags = request.POST.get('product_tags')
-    product_size = request.POST.get('product_size')
     product_color = request.POST.get('product_color')
     product_fabric = request.POST.get('product_fabric')
     product_description = request.POST.get('product_description')
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         update = Product.objects.get(product_seller=seller_user, id=primary_key)
-        if len(product_images) != 0:
-            if not product_category == '':
-                update.product_category = product_category
-            if not product_items == '':
-                update.product_items = product_items
-            if not product_images == '':
-                update.product_images = [
-                    default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')),
-                                         image) for image in product_images]
-            if not SKU == '':
-                update.SKU = SKU
-            if not product_name == '':
-                update.product_name = product_name
-            if not product_price == '':
-                update.product_price = product_price
-            if not product_sale_price == '':
-                update.product_sale_price = product_sale_price
-            if not product_quantity == '':
-                update.product_quantity = product_quantity
-            if not product_branding == '':
-                update.product_branding = product_branding
-            if not product_tags == '':
-                update.product_tags = product_tags
-            if not product_size == '':
-                update.product_size = product_size
-            if not product_color == '':
-                update.product_color = product_color
-            if not product_fabric == '':
-                update.product_fabric = product_fabric
-            if not product_description == '':
-                update.product_description = product_description
-        else:
-            if not product_category == '':
-                update.product_category = product_category
-            if not product_items == '':
-                update.product_items = product_items
-            if not SKU == '':
-                update.SKU = SKU
-            if not product_name == '':
-                update.product_name = product_name
-            if not product_price == '':
-                update.product_price = product_price
-            if not product_sale_price == '':
-                update.product_sale_price = product_sale_price
-            if not product_quantity == '':
-                update.product_quantity = product_quantity
-            if not product_branding == '':
-                update.product_branding = product_branding
-            if not product_tags == '':
-                update.product_tags = product_tags
-            if not product_size == '':
-                update.product_size = product_size
-            if not product_color == '':
-                update.product_color = product_color
-            if not product_fabric == '':
-                update.product_fabric = product_fabric
-            if not product_description == '':
-                update.product_description = product_description
-        update.save()
+        update_data = {
+            'Data': product_update(request, update, product_images, SKU, product_name, product_branding, product_tags,
+                                   product_color, product_fabric, product_description)}
         return JsonResponse({'Message': 'Update Product Successfully.'})
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
 
 
-@api_view(['POST'])
+@api_view(['DELETE'])
 def delete_product(request):
     primary_key = request.POST['primary_key']
     try:
@@ -412,6 +399,117 @@ def delete_product(request):
 
 
 @api_view(['GET'])
+def inventory(request):
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        all_catalog = Product.objects.filter(product_seller=seller_user)
+        stock = []
+        for i in all_catalog:
+            if i.product_quantity == 0:
+                data = {
+                    'Images': i.product_images,
+                    'Name': i.product_name,
+                    'Category': i.product_sub_category,
+                    'Price': i.product_price,
+                    'SKU ID': i.SKU,
+                    'Variation': i.product_size,
+                    'Current Stock': i.product_quantity,
+                    'Status': 'Out of Stock'
+                }
+                stock.append(data)
+            else:
+                data = {
+                    'Images': i.product_images,
+                    'Name': i.product_name,
+                    'Category': i.product_sub_category,
+                    'Price': i.product_price,
+                    'SKU ID': i.SKU,
+                    'Variation': i.product_size,
+                    'Current Stock': i.product_quantity
+                }
+                stock.append(data)
+
+        return JsonResponse({'Stock': stock, 'Message': 'Inventory'})
+    except Exception as e:
+        return JsonResponse({'Stock': None, 'Message': e.__str__()})
+
+
+@api_view(['POST'])
+def edit_stock(request):
+    primary_key = request.POST['primary_key']
+    stock = request.POST['stock']
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        stock_edit = Product.objects.get(product_seller=seller_user, id=primary_key)
+        stock_edit.product_quantity = stock
+        stock_edit.save()
+        return JsonResponse({'Message': 'Stock Edit Successfully.'})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
+
+
+@api_view(['POST'])
+def inventory_filter_category(request):
+    category = request.POST['category'].upper()
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        category_filter = Product.objects.filter(product_seller=seller_user, product_category=category)
+        stock = []
+        if len(category_filter) != 0:
+            for i in category_filter:
+                if i.product_quantity == 0:
+                    data = {
+                        'Images': i.product_images,
+                        'Name': i.product_name,
+                        'Category': i.product_sub_category,
+                        'Price': i.product_price,
+                        'SKU ID': i.SKU,
+                        'Variation': i.product_size,
+                        'Current Stock': i.product_quantity,
+                        'Status': 'Out of Stock'
+                    }
+                    stock.append(data)
+                else:
+                    data = {
+                        'Images': i.product_images,
+                        'Name': i.product_name,
+                        'Category': i.product_sub_category,
+                        'Price': i.product_price,
+                        'SKU ID': i.SKU,
+                        'Variation': i.product_size,
+                        'Current Stock': i.product_quantity
+                    }
+                    stock.append(data)
+            return JsonResponse({'Message': 'Filter Category', 'Data': stock})
+        else:
+            return JsonResponse({'Message': 'Category is Not exist', 'Data': None})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__(), 'Data': None})
+
+
+@api_view(['POST'])
+def inventory_edit_catalog(request):
+    primary_key = request.POST['primary_key']
+    product_images = request.FILES.getlist('product_images')
+    SKU = request.POST.get('SKU')
+    product_name = request.POST.get('product_name')
+    product_branding = request.POST.get('product_branding')
+    product_tags = request.POST.get('product_tags')
+    product_color = request.POST.get('product_color')
+    product_fabric = request.POST.get('product_fabric')
+    product_description = request.POST.get('product_description')
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        update = Product.objects.get(product_seller=seller_user, id=primary_key)
+        update_data = {
+            'Data': product_update(request, update, product_images, SKU, product_name, product_branding, product_tags,
+                                   product_color, product_fabric, product_description)}
+        return JsonResponse({'Message': 'Edit Catalog Successfully.'})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
+
+
+@api_view(['GET'])
 def pending_order(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
@@ -420,6 +518,7 @@ def pending_order(request):
                                                details__status=True).only(
             'order')
         list2 = [i.order for i in buyer_all_order]
+        print(buyer_order)
         for i in buyer_order:
             if i.order not in list2:
                 c_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
@@ -441,9 +540,6 @@ def pending_order(request):
         view_all_order = Order.objects.filter(details__cart__product__product_seller=seller_user, status=True)
         all_order = []
         for i in view_all_order:
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.details.cart.product.product_images]
-            i.details.cart.product.product_images = path1
             data = {
                 'Order ID': i.order,
                 'Image': i.details.cart.product.product_images,
@@ -455,17 +551,17 @@ def pending_order(request):
                 'Dispatch Date/ SLA': i.dispatch_date
             }
             all_order.append(data)
-        return JsonResponse({'View All Order': all_order})
+        return JsonResponse({'Message': 'View All Pending Order', 'View All Order': all_order})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'View All Order': None})
 
 
 @api_view(['POST'])
 def filter_order_date(request):
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
+    start_time = datetime.time(00, 00, 00)
+    end_time = datetime.time(23, 59, 59)
     try:
         filter_data_list = []
         seller_user = Register.objects.get(email=request.session['email'])
@@ -479,9 +575,6 @@ def filter_order_date(request):
                                            details__cart__product__product_seller=seller_user,
                                            details__cart__status=True, status=True)
         for i in filter_data:
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.details.cart.product.product_images]
-            i.details.cart.product.product_images = path1
             dispatch_date = i.dispatch_date
             dispatch_day = dispatch_date.day
             dispatch_month = dispatch_date.strftime('%B')
@@ -496,18 +589,18 @@ def filter_order_date(request):
                 'Dispatch Date/ SLA': f'{dispatch_day} {dispatch_month}'
             }
             filter_data_list.append(data)
-        return JsonResponse({'Filter Order': filter_data_list})
+        return JsonResponse({'Message': 'Filter With Order Date', 'Filter Order': filter_data_list})
 
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Filter Order': None})
 
 
 @api_view(['POST'])
 def filter_dispatch_date(request):
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
+    start_time = datetime.time(00, 00, 00)
+    end_time = datetime.time(23, 59, 59)
     try:
         filter_data_list = []
         seller_user = Register.objects.get(email=request.session['email'])
@@ -521,9 +614,6 @@ def filter_dispatch_date(request):
                                            details__cart__product__product_seller=seller_user,
                                            details__cart__status=True, status=True)
         for i in filter_data:
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.details.cart.product.product_images]
-            i.details.cart.product.product_images = path1
             dispatch_date = i.dispatch_date
             dispatch_day = dispatch_date.day
             dispatch_month = dispatch_date.strftime('%B')
@@ -538,10 +628,10 @@ def filter_dispatch_date(request):
                 'Dispatch Date/ SLA': f'{dispatch_day} {dispatch_month}'
             }
             filter_data_list.append(data)
-        return JsonResponse({'Filter Order': filter_data_list})
+        return JsonResponse({'Message': 'Filter With Dispatch Date', 'Filter Order': filter_data_list})
 
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Filter Order': None})
 
 
 @api_view(['POST'])
@@ -556,9 +646,6 @@ def order_search(request):
             details__cart__product__product_seller=seller_user, status=True)
         if search_order.count() != 0 and search != '':
             for i in search_order:
-                path = request.META['HTTP_HOST']
-                path1 = ['http://' + path + '/media/' + i for i in i.details.cart.product.product_images]
-                i.details.cart.product.product_images = path1
                 dispatch_date = i.dispatch_date
                 dispatch_day = dispatch_date.day
                 dispatch_month = dispatch_date.strftime('%B')
@@ -633,9 +720,6 @@ def ready_to_ship(request):
         view_accept_all_order = Accept.objects.filter(status=True, order__product__product_seller=seller_user)
         accept_orders = []
         for i in view_accept_all_order:
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.product.product_images]
-            i.product.product_images = path1
             dispatch_date = i.order.dispatch_date
             dispatch_day = dispatch_date.day
             dispatch_month = dispatch_date.strftime('%B')
@@ -772,9 +856,6 @@ def cancelled(request):
         view_cancel_all_order = Cancel.objects.filter(status=True, order__product__product_seller=seller_user)
         cancel_orders = []
         for i in view_cancel_all_order:
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.product.product_images]
-            i.product.product_images = path1
             data = {
                 'Image': i.product.product_images,
                 'Name': i.product.product_name,
@@ -803,9 +884,6 @@ def pricing(request):
             (total := total + j.total, total_order := total_order + j.qty)
             for j in order
         ]
-        path = request.META['HTTP_HOST']
-        path1 = ['http://' + path + '/media/' + i for i in i.product_images]
-        i.product_images = path1
         data = {
             'Product Details': {'Image': i.product_images, 'Name': i.product_name, 'SKU': i.SKU,
                                 'Size': i.product_size},
@@ -838,7 +916,7 @@ def filter_category(request):
     category = request.POST['category'].upper()
     try:
         seller_user = Register.objects.get(email=request.session['email'])
-        product = Product.objects.filter(product_seller=seller_user, product_items=category)
+        product = Product.objects.filter(product_seller=seller_user, product_sub_category=category)
         all_product = []
         for i in product:
             order = Order.objects.filter(product=i, product__product_seller=seller_user)
@@ -847,9 +925,6 @@ def filter_category(request):
                 (total := total + j.total, total_order := total_order + j.qty)
                 for j in order
             ]
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.product_images]
-            i.product_images = path1
             data = {
                 'Product Details': {'Image': i.product_images, 'Name': i.product_name, 'SKU': i.SKU,
                                     'Size': i.product_size},
@@ -887,9 +962,6 @@ def date_growth(request):
                 (total := total + j.total, total_order := total_order + j.qty)
                 for j in order
             ]
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in i.product_images]
-            i.product_images = path1
             data = {
                 'Product Details': {'Image': i.product_images, 'Name': i.product_name, 'SKU': i.SKU,
                                     'Size': i.product_size},
@@ -902,3 +974,69 @@ def date_growth(request):
 
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
+
+
+@api_view(['GET'])
+def return_tracking(request):
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        return_order = Return.objects.filter(order__cart__product__product_seller=seller_user)
+        all_returns = []
+        for i in return_order:
+            return_date = i.return_date
+            return_day = return_date.day
+            return_month = return_date.strftime('%b')
+            return_year = return_date.strftime('%y')
+            data = {
+                'Images': i.order.cart.product.product_images,
+                'Name': i.order.cart.product.product_name,
+                'SKU ID': i.order.cart.product.SKU,
+                'Category': i.order.cart.product.product_category,
+                'Qty': i.order.cart.qty,
+                'Size': i.order.cart.product_size,
+                'Order ID': i.order.order,
+                'Return Reason': i.order_return_message,
+                'Return Shipping Fee': f'₹{i.return_shipping_Fee}',
+                'Created Date': f"{return_day} {return_month}'{return_year}",
+                'Return ID': i.returns,
+            }
+            all_returns.append(data)
+        return JsonResponse({'Message': all_returns})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__()})
+
+
+@api_view(['GET'])
+def return_overview(request):
+    seller_user = Register.objects.get(email=request.session['email'])
+    product = Product.objects.filter(product_seller=seller_user)
+    all_returns = []
+    for i in product:
+        return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
+                                             order__cart__product__product=i.product)
+        order = Order.objects.filter(product=i, product__product_seller=seller_user)
+        total, total_order = 0, 0
+        for k in order:
+            total_order += k.qty
+
+        for j in return_order:
+            total += 1
+        if total != 0 and total_order != 0:
+            data = {
+                'Image': i.product_images,
+                'Name': i.product_name,
+                'Category': i.product_category,
+                'Return Order': total,
+                'Returns': f'{total * 100 / total_order}%',
+            }
+            all_returns.append(data)
+        else:
+            data = {
+                'Image': i.product_images,
+                'Name': i.product_name,
+                'Category': i.product_category,
+                'Return Order': '0',
+                'Returns': '0.0%',
+            }
+            all_returns.append(data)
+    return JsonResponse({'Message': all_returns})

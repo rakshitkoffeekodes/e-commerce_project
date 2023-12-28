@@ -15,6 +15,10 @@ urlpatterns = [
     path('view_all_product/', views.view_all_product),
     path('update_product/', views.update_product),
     path('delete_product/', views.delete_product),
+    path('inventory/', views.inventory),
+    path('edit_stock/', views.edit_stock),
+    path('inventory_filter_category/', views.inventory_filter_category),
+    path('inventory_edit_catalog/', views.inventory_edit_catalog),
     path('pending_order/', views.pending_order),
     path('filter_order_date/', views.filter_order_date),
     path('filter_dispatch_date/', views.filter_dispatch_date),
@@ -28,4 +32,6 @@ urlpatterns = [
     path('edit_pricing/', views.edit_pricing),
     path('filter_category/', views.filter_category),
     path('date_growth/', views.date_growth),
+    path('return_tracking/', views.return_tracking),
+    path('return_overview/', views.return_overview),
 ]

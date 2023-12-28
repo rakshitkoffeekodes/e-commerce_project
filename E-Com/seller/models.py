@@ -53,7 +53,7 @@ class Product(models.Model):
     product_sale_price = models.IntegerField(blank=False)
     product_quantity = models.IntegerField(blank=False)
     product_category = models.CharField(max_length=50, choices=items)
-    product_items = models.CharField(max_length=50, choices=sub_items)
+    product_sub_category = models.CharField(max_length=50, choices=sub_items)
     product_branding = models.CharField(max_length=50)
     product_tags = models.CharField(max_length=50)
     product_size = models.CharField(max_length=50)
@@ -61,6 +61,7 @@ class Product(models.Model):
     product_fabric = models.CharField(max_length=50)
     product_description = models.TextField()
     product_date = models.DateTimeField(null=True)
+    product = models.CharField(max_length=50, null=True)
     product_seller = models.ForeignKey(Register, on_delete=models.CASCADE)
 
     def __str__(self):

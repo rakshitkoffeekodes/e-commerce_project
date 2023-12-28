@@ -11,7 +11,7 @@ class register(admin.ModelAdmin):
 class product(admin.ModelAdmin):
     list_display = (
         'id', 'SKU', 'product_name', 'product_price', 'product_sale_price', 'product_quantity', 'product_category',
-        'product_items', 'product_branding', 'product_tags', 'product_size', 'product_color', 'product_fabric',
+        'product_sub_category', 'product_branding', 'product_tags', 'product_size', 'product_color', 'product_fabric',
         'product_seller')
 
 
