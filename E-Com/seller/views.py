@@ -12,6 +12,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from .serilizers import *
 from django.conf import settings
 from django.core.mail import send_mail
+from base.serlializers import *
 
 
 # Create your views here.
@@ -96,16 +97,8 @@ def profile(request):
         seller_user = Register.objects.get(email=request.session['email'])
         path = request.META['HTTP_HOST']
         path1 = 'http://' + path + '/media/' + str(seller_user.profile_picture)
-        seller_user.profile_picture = path1
-        data = {
-            'Profile Image': str(seller_user.profile_picture),
-            'First Name': seller_user.first_name,
-            'Last Name': seller_user.last_name,
-            'Email': seller_user.email,
-            'Mobile Number': seller_user.mobile_no,
-            'Address': seller_user.address
-        }
-        return JsonResponse({'Profile': data})
+        serial = RegisterSerializer(seller_user)
+        return JsonResponse({'Profile': serial.data, 'Profile_URL': path1})
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
 
@@ -164,7 +157,6 @@ def add_product(request):
             for image in product_images]
         path = request.META['HTTP_HOST']
         path1 = ['http://' + path + '/media/' + i for i in product_image]
-        print(path1)
         product_add = Product()
         product_add.product_category = product_category.upper()
         product_add.product_sub_category = product_sub_category.upper()
@@ -295,29 +287,14 @@ def view_all_product(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         all_product = Product.objects.filter(product_seller=seller_user)
-        all_product_list = []
-        for i in all_product:
-            products = {
-                'product_images': i.product_images,
-                'SKU': i.SKU,
-                'product_name': i.product_name,
-                'product_price': i.product_price,
-                'product_sale_price': i.product_sale_price,
-                'product_quantity': i.product_quantity,
-                'product_category': i.product_category,
-                'product_sub_category': i.product_sub_category,
-                'product_branding': i.product_branding,
-                'product_tags': i.product_tags,
-                'product_size': i.product_size,
-                'product_color': i.product_color,
-                'product_fabric': i.product_fabric,
-                'product_description': i.product_description,
-            }
-            all_product_list.append(products)
-        return JsonResponse({'Products': all_product_list})
-
+        serial = ProductSerializer(all_product, many=True)
+        products = [{'Images': i.get('product_images'), 'SKU': i.get('SKU'), 'Name': i.get('product_name'),
+                     'Product Category': i.get('product_category'), 'Product Size': i.get('product_size'),
+                     'Product Color': i.get('product_color'), 'Product Date': i.get('product_date')} for i in
+                    serial.data]
+        return JsonResponse({'Message': 'All Product', 'Products': products})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Products': None})
 
 
 def product_update(request, update, product_images, SKU, product_name, product_branding, product_tags,
@@ -403,35 +380,18 @@ def inventory(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         all_catalog = Product.objects.filter(product_seller=seller_user)
-        stock = []
-        for i in all_catalog:
-            if i.product_quantity == 0:
-                data = {
-                    'Images': i.product_images,
-                    'Name': i.product_name,
-                    'Category': i.product_sub_category,
-                    'Price': i.product_price,
-                    'SKU ID': i.SKU,
-                    'Variation': i.product_size,
-                    'Current Stock': i.product_quantity,
-                    'Status': 'Out of Stock'
-                }
-                stock.append(data)
-            else:
-                data = {
-                    'Images': i.product_images,
-                    'Name': i.product_name,
-                    'Category': i.product_sub_category,
-                    'Price': i.product_price,
-                    'SKU ID': i.SKU,
-                    'Variation': i.product_size,
-                    'Current Stock': i.product_quantity
-                }
-                stock.append(data)
+        serial = ProductSerializer(all_catalog, many=True)
+        product_info = [
+            {'image': i.got('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
+             'Price': i.get('product_price'), 'Variation': i.get('product_size'),
+             'Current Stock': i.get('product_quantity'), 'Status': 'Out Of Stock'} if i.get('product_quantity') == 0
+            else {'image': i.get('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
+                  'Price': i.get('product_price'), 'Variation': i.get('product_size'),
+                  'Current Stock': i.get('product_quantity')} for i in serial.data]
 
-        return JsonResponse({'Stock': stock, 'Message': 'Inventory'})
+        return JsonResponse({'Message': 'Inventory', 'Stock': product_info})
     except Exception as e:
-        return JsonResponse({'Stock': None, 'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Stock': None})
 
 
 @api_view(['POST'])
@@ -454,33 +414,16 @@ def inventory_filter_category(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         category_filter = Product.objects.filter(product_seller=seller_user, product_category=category)
-        stock = []
+        serial = ProductSerializer(category_filter, many=True)
         if len(category_filter) != 0:
-            for i in category_filter:
-                if i.product_quantity == 0:
-                    data = {
-                        'Images': i.product_images,
-                        'Name': i.product_name,
-                        'Category': i.product_sub_category,
-                        'Price': i.product_price,
-                        'SKU ID': i.SKU,
-                        'Variation': i.product_size,
-                        'Current Stock': i.product_quantity,
-                        'Status': 'Out of Stock'
-                    }
-                    stock.append(data)
-                else:
-                    data = {
-                        'Images': i.product_images,
-                        'Name': i.product_name,
-                        'Category': i.product_sub_category,
-                        'Price': i.product_price,
-                        'SKU ID': i.SKU,
-                        'Variation': i.product_size,
-                        'Current Stock': i.product_quantity
-                    }
-                    stock.append(data)
-            return JsonResponse({'Message': 'Filter Category', 'Data': stock})
+            product_info = [
+                {'image': i.got('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
+                 'Price': i.get('product_price'), 'Variation': i.get('product_size'),
+                 'Current Stock': i.get('product_quantity'), 'Status': 'Out Of Stock'} if i.get('product_quantity') == 0
+                else {'image': i.get('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
+                      'Price': i.get('product_price'), 'Variation': i.get('product_size'),
+                      'Current Stock': i.get('product_quantity')} for i in serial.data]
+            return JsonResponse({'Message': 'Filter Category', 'Data': product_info})
         else:
             return JsonResponse({'Message': 'Category is Not exist', 'Data': None})
     except Exception as e:
@@ -515,8 +458,7 @@ def pending_order(request):
         seller_user = Register.objects.get(email=request.session['email'])
         buyer_order = Payment.objects.filter(details__cart__status=True)
         buyer_all_order = Order.objects.filter(details__cart__product__product_seller=seller_user,
-                                               details__status=True).only(
-            'order')
+                                               details__status=True).only('order')
         list2 = [i.order for i in buyer_all_order]
         print(buyer_order)
         for i in buyer_order:
@@ -563,7 +505,6 @@ def filter_order_date(request):
     start_time = datetime.time(00, 00, 00)
     end_time = datetime.time(23, 59, 59)
     try:
-        filter_data_list = []
         seller_user = Register.objects.get(email=request.session['email'])
         start_object = datetime.datetime.strptime(start_date, "%Y-%m-%d")
         start_datetime = datetime.datetime(year=start_object.year, month=start_object.month, day=start_object.day,
@@ -574,22 +515,17 @@ def filter_order_date(request):
         filter_data = Order.objects.filter(order_date__range=(start_datetime, end_datetime),
                                            details__cart__product__product_seller=seller_user,
                                            details__cart__status=True, status=True)
-        for i in filter_data:
-            dispatch_date = i.dispatch_date
-            dispatch_day = dispatch_date.day
-            dispatch_month = dispatch_date.strftime('%B')
-            data = {
-                'Order ID': i.order,
-                'Image': i.details.cart.product.product_images,
-                'Name': i.details.cart.product.product_name,
-                'SKU ID': i.details.cart.product.SKU,
-                'Company ID': i.company,
-                'Quantity': i.details.cart.qty,
-                'Size': i.details.cart.product.product_size,
-                'Dispatch Date/ SLA': f'{dispatch_day} {dispatch_month}'
-            }
-            filter_data_list.append(data)
-        return JsonResponse({'Message': 'Filter With Order Date', 'Filter Order': filter_data_list})
+        filter_data_list = [{
+            'Order ID': i.order,
+            'Image': i.details.cart.product.product_images,
+            'Name': i.details.cart.product.product_name,
+            'SKU ID': i.details.cart.product.SKU,
+            'Company ID': i.company,
+            'Quantity': i.details.cart.qty,
+            'Size': i.details.cart.product.product_size,
+            'Dispatch Date/ SLA': f"{i.order_date.day} {i.order_date.strftime('%b')}"
+        } for i in filter_data]
+        return JsonResponse({'Message': 'Filter By: Order Date', 'Filter Order': filter_data_list})
 
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Filter Order': None})
@@ -613,22 +549,17 @@ def filter_dispatch_date(request):
         filter_data = Order.objects.filter(dispatch_date__range=(start_datetime, end_datetime),
                                            details__cart__product__product_seller=seller_user,
                                            details__cart__status=True, status=True)
-        for i in filter_data:
-            dispatch_date = i.dispatch_date
-            dispatch_day = dispatch_date.day
-            dispatch_month = dispatch_date.strftime('%B')
-            data = {
-                'Order ID': i.order,
-                'Image': i.details.cart.product.product_images,
-                'Name': i.details.cart.product.product_name,
-                'SKU ID': i.details.cart.product.SKU,
-                'Company ID': i.company,
-                'Quantity': i.details.cart.qty,
-                'Size': i.details.cart.product.product_size,
-                'Dispatch Date/ SLA': f'{dispatch_day} {dispatch_month}'
-            }
-            filter_data_list.append(data)
-        return JsonResponse({'Message': 'Filter With Dispatch Date', 'Filter Order': filter_data_list})
+        filter_data_list = [{
+            'Order ID': i.order,
+            'Image': i.details.cart.product.product_images,
+            'Name': i.details.cart.product.product_name,
+            'SKU ID': i.details.cart.product.SKU,
+            'Company ID': i.company,
+            'Quantity': i.details.cart.qty,
+            'Size': i.details.cart.product.product_size,
+            'Dispatch Date/ SLA': f"{i.dispatch_date.day} {i.dispatch_date.strftime('%b')}"
+        } for i in filter_data]
+        return JsonResponse({'Message': 'Filter By: Dispatch Date', 'Filter Order': filter_data_list})
 
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Filter Order': None})
@@ -637,7 +568,6 @@ def filter_dispatch_date(request):
 @api_view(['POST'])
 def order_search(request):
     search = request.POST.get('search', '')
-    search_data = []
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         search_order = Order.objects.filter(
@@ -645,26 +575,22 @@ def order_search(request):
                 details__cart__product__SKU__icontains=search),
             details__cart__product__product_seller=seller_user, status=True)
         if search_order.count() != 0 and search != '':
-            for i in search_order:
-                dispatch_date = i.dispatch_date
-                dispatch_day = dispatch_date.day
-                dispatch_month = dispatch_date.strftime('%B')
-                data = {
-                    'Order ID': i.order,
-                    'Image': i.details.cart.product.product_images,
-                    'Name': i.details.cart.product.product_name,
-                    'SKU ID': i.details.cart.product.SKU,
-                    'Company ID': i.company,
-                    'Quantity': i.details.cart.qty,
-                    'Size': i.details.cart.product.product_size,
-                    'Dispatch Date/ SLA': f'{dispatch_day} {dispatch_month}'
-                }
-                search_data.append(data)
-            return JsonResponse({'Message': search_data})
+            search_data = [{
+                'Order ID': i.order,
+                'Image': i.details.cart.product.product_images,
+                'Name': i.details.cart.product.product_name,
+                'SKU ID': i.details.cart.product.SKU,
+                'Company ID': i.company,
+                'Quantity': i.details.cart.qty,
+                'Size': i.details.cart.product.product_size,
+                'Dispatch Date/ SLA': f'{i.dispatch_date.day} {i.dispatch_date.strftime("%b")}'
+            } for i in search_order]
+            return JsonResponse({'Message1': 'Search Order', 'Message2': 'Search Order Only SKU, Order ID, Company ID',
+                                 'Search Order': search_data})
         else:
-            return JsonResponse({'Message': 'Product Is Not Found'})
+            return JsonResponse({'Message': 'Product Is Not Found', 'Search Order': None})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Search Order': None})
 
 
 @api_view(['POST'])
@@ -718,26 +644,19 @@ def ready_to_ship(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         view_accept_all_order = Accept.objects.filter(status=True, order__product__product_seller=seller_user)
-        accept_orders = []
-        for i in view_accept_all_order:
-            dispatch_date = i.order.dispatch_date
-            dispatch_day = dispatch_date.day
-            dispatch_month = dispatch_date.strftime('%B')
-            data = {
-                'Order ID': i.order.order,
-                'Image': i.product.product_images,
-                'Name': i.product.product_name,
-                'SKU ID': i.product.SKU,
-                'Company ID': i.order.company,
-                'Quantity': i.qty,
-                'Size': i.product.product_size,
-                'Dispatch Date/ SLA': f'{dispatch_day} {dispatch_month}'
-            }
-            accept_orders.append(data)
-
-        return JsonResponse({'Message': accept_orders})
+        accept_orders = [{
+            'Order ID': i.order.order,
+            'Image': i.product.product_images,
+            'Name': i.product.product_name,
+            'SKU ID': i.product.SKU,
+            'Company ID': i.order.company,
+            'Quantity': i.qty,
+            'Size': i.product.product_size,
+            'Dispatch Date/ SLA': f"{i.order.dispatch_date.day} {i.order.dispatch_date.strftime('%b')}'{i.order.dispatch_date.strftime('%y')}"
+        } for i in view_accept_all_order]
+        return JsonResponse({'Message': 'Ready To Ship', 'Accept Orders': accept_orders})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Accept Orders': None})
 
 
 def label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax):
@@ -784,7 +703,7 @@ def shipping_label(request):
                 tax = label.total * gst3 / 100
             total = tax + label.total
             data = label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax)
-            return JsonResponse({'Label Data': data})
+            return JsonResponse({'Message': 'Shipping Label', 'Label Data': data})
 
         else:
             data_list = []
@@ -799,9 +718,9 @@ def shipping_label(request):
                 total = tax + label.total
                 data = label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date, total, tax)
                 data_list.append(data)
-            return JsonResponse({'Label Data': data_list})
+            return JsonResponse({'Message': 'Shipping Label', 'Label Data': data_list})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Label Data': None})
 
 
 @api_view(['POST'])
@@ -854,45 +773,42 @@ def cancelled(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         view_cancel_all_order = Cancel.objects.filter(status=True, order__product__product_seller=seller_user)
-        cancel_orders = []
-        for i in view_cancel_all_order:
-            data = {
-                'Image': i.product.product_images,
-                'Name': i.product.product_name,
-                'Order ID': i.order.order,
-                'SKU ID': i.product.SKU,
-                'Company ID': i.order.company,
-                'Quantity': i.qty,
-                'Size': i.product.product_size,
-            }
-            cancel_orders.append(data)
-
-        return JsonResponse({'Message': cancel_orders})
+        cancel_orders = [{
+            'Image': i.product.product_images,
+            'Name': i.product.product_name,
+            'Order ID': i.order.order,
+            'SKU ID': i.product.SKU,
+            'Company ID': i.order.company,
+            'Quantity': i.qty,
+            'Size': i.product.product_size,
+        } for i in view_cancel_all_order]
+        return JsonResponse({'Message': 'View Cancelled', 'Cancel Order': cancel_orders})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Cancel Order': None})
 
 
 @api_view(['GET'])
 def pricing(request):
-    seller_user = Register.objects.get(email=request.session['email'])
-    product = Product.objects.filter(product_seller=seller_user)
-    all_product = []
-    for i in product:
-        order = Order.objects.filter(product=i, product__product_seller=seller_user)
-        total, total_order = 0, 0
-        order_comprehension = [
-            (total := total + j.total, total_order := total_order + j.qty)
-            for j in order
-        ]
-        data = {
-            'Product Details': {'Image': i.product_images, 'Name': i.product_name, 'SKU': i.SKU,
-                                'Size': i.product_size},
-            'Current Stock': i.product_quantity,
-            'Growth': {'Orders': total_order, 'Sales': f'₹{total}'},
-            'Current Customer Price': i.product_price
-        }
-        all_product.append(data)
-    return JsonResponse({'Message': all_product})
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        product = Product.objects.filter(product_seller=seller_user)
+        all_product = []
+        for i in product:
+            order = Order.objects.filter(product=i, product__product_seller=seller_user)
+            total, total_order = 0, 0
+            order_comprehension = [
+                (total := total + j.total, total_order := total_order + j.qty)
+                for j in order
+            ]
+            data = {
+                'Product Details': {'Image': i.product_images, 'Name': i.product_name, 'SKU': i.SKU,
+                                    'Size': i.product_size}, 'Current Stock': i.product_quantity,
+                'Growth': {'Orders': total_order, 'Sales': f'₹{total}'}, 'Current Customer Price': i.product_price
+            }
+            all_product.append(data)
+        return JsonResponse({'Message': 'Pricing', 'Product': all_product})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__(), 'Product': None})
 
 
 @api_view(['POST'])
@@ -933,9 +849,9 @@ def filter_category(request):
                 'Current Customer Price': i.product_price
             }
             all_product.append(data)
-        return JsonResponse({'Data': all_product})
+        return JsonResponse({'Message': 'Filter By: Category', 'Product': all_product})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Product': None})
 
 
 @api_view(['POST'])
@@ -970,10 +886,10 @@ def date_growth(request):
                 'Current Customer Price': i.product_price
             }
             filter_data_list.append(data)
-        return JsonResponse({'Filter Order': filter_data_list})
+        return JsonResponse({'Message': 'Date Growth', 'Growth Product': filter_data_list})
 
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Growth Product': None})
 
 
 @api_view(['GET'])
@@ -981,62 +897,117 @@ def return_tracking(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
         return_order = Return.objects.filter(order__cart__product__product_seller=seller_user)
-        all_returns = []
-        for i in return_order:
-            return_date = i.return_date
-            return_day = return_date.day
-            return_month = return_date.strftime('%b')
-            return_year = return_date.strftime('%y')
-            data = {
-                'Images': i.order.cart.product.product_images,
-                'Name': i.order.cart.product.product_name,
-                'SKU ID': i.order.cart.product.SKU,
-                'Category': i.order.cart.product.product_category,
-                'Qty': i.order.cart.qty,
-                'Size': i.order.cart.product_size,
-                'Order ID': i.order.order,
-                'Return Reason': i.order_return_message,
-                'Return Shipping Fee': f'₹{i.return_shipping_Fee}',
-                'Created Date': f"{return_day} {return_month}'{return_year}",
-                'Return ID': i.returns,
-            }
-            all_returns.append(data)
-        return JsonResponse({'Message': all_returns})
+        all_returns = [{
+            'Images': i.order.cart.product.product_images,
+            'Name': i.order.cart.product.product_name,
+            'SKU ID': i.order.cart.product.SKU,
+            'Category': i.order.cart.product.product_category,
+            'Qty': i.order.cart.qty,
+            'Size': i.order.cart.product_size,
+            'Order ID': i.order.order,
+            'Return Reason': i.order_return_message,
+            'Return Shipping Fee': f'₹{i.return_shipping_Fee}',
+            'Created Date': f"{i.return_date.day} {i.return_date.strftime('%b')}'{i.return_date.strftime('%y')}",
+            'Return ID': i.returns,
+        } for i in return_order]
+        return JsonResponse({'Message': 'Tracking Return', 'Return Product': all_returns})
     except Exception as e:
-        return JsonResponse({'Message': e.__str__()})
+        return JsonResponse({'Message': e.__str__(), 'Return Product': None})
 
 
 @api_view(['GET'])
 def return_overview(request):
-    seller_user = Register.objects.get(email=request.session['email'])
-    product = Product.objects.filter(product_seller=seller_user)
-    all_returns = []
-    for i in product:
-        return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
-                                             order__cart__product__product=i.product)
-        order = Order.objects.filter(product=i, product__product_seller=seller_user)
-        total, total_order = 0, 0
-        for k in order:
-            total_order += k.qty
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        product = Product.objects.filter(product_seller=seller_user)
+        all_returns = []
+        for i in product:
+            return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
+                                                 order__cart__product__product=i.product)
+            order = Accept.objects.filter(product__product=i.product, product__product_seller=seller_user)
+            total, total_order = 0, 0
+            for k in order:
+                total_order += k.qty
+            for j in return_order:
+                total += 1
+            if total != 0 and total_order != 0:
+                data = {
+                    'Image': i.product_images,
+                    'Name': i.product_name,
+                    'Category': i.product_category,
+                    'Return Order': total,
+                    'Returns': f'{round(total * 100 / total_order, 1)}%',
+                }
+                all_returns.append(data)
+            else:
+                data = {
+                    'Image': i.product_images,
+                    'Name': i.product_name,
+                    'Category': i.product_category,
+                    'Return Order': '-',
+                    'Returns': '0.0%',
+                }
+                all_returns.append(data)
+        return JsonResponse({'Message': 'Return Over View', 'returns': all_returns})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__(), 'returns': None})
 
-        for j in return_order:
-            total += 1
-        if total != 0 and total_order != 0:
-            data = {
-                'Image': i.product_images,
-                'Name': i.product_name,
-                'Category': i.product_category,
-                'Return Order': total,
-                'Returns': f'{total * 100 / total_order}%',
-            }
-            all_returns.append(data)
-        else:
-            data = {
-                'Image': i.product_images,
-                'Name': i.product_name,
-                'Category': i.product_category,
-                'Return Order': '0',
-                'Returns': '0.0%',
-            }
-            all_returns.append(data)
-    return JsonResponse({'Message': all_returns})
+
+@api_view(['POST'])
+def return_filter_category(request):
+    category = request.POST['category']
+    try:
+        seller_user = Register.objects.get(email=request.session['email'])
+        category_filter = Return.objects.filter(order__cart__product__product_seller=seller_user,
+                                                order__cart__product__product_category=category)
+        all_returns = [{
+            'Images': i.order.cart.product.product_images,
+            'Name': i.order.cart.product.product_name,
+            'SKU ID': i.order.cart.product.SKU,
+            'Category': i.order.cart.product.product_category,
+            'Qty': i.order.cart.qty,
+            'Size': i.order.cart.product_size,
+            'Order ID': i.order.order,
+            'Return Reason': i.order_return_message,
+            'Return Shipping Fee': f'₹{i.return_shipping_Fee}',
+            'Created Date': f"{i.return_date.day} {i.return_date.strftime('%b')}'{i.return_date.strftime('%y')}",
+            'Return ID': i.returns,
+        } for i in category_filter]
+        return JsonResponse({'Message': 'Filter By: Category', 'Filter Data': all_returns})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__(), 'Filter Data': None})
+
+
+@api_view(['POST'])
+def return_filter_date(request):
+    start_time = datetime.time(00, 00, 00)
+    end_time = datetime.time(23, 59, 59)
+    start_date = request.POST.get('start_date')
+    end_date = request.POST.get('end_date')
+    try:
+
+        seller_user = Register.objects.get(email=request.session['email'])
+        start_object = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        start_datetime = datetime.datetime(year=start_object.year, month=start_object.month, day=start_object.day,
+                                           hour=start_time.hour, minute=start_time.minute, second=start_time.second)
+        end_object = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+        end_datetime = datetime.datetime(year=end_object.year, month=end_object.month, day=end_object.day,
+                                         hour=end_time.hour, minute=end_time.minute, second=end_time.second)
+        filter_data = Return.objects.filter(return_date__range=(start_datetime, end_datetime),
+                                            order__cart__product__product_seller=seller_user)
+        all_returns = [{
+            'Images': i.order.cart.product.product_images,
+            'Name': i.order.cart.product.product_name,
+            'SKU ID': i.order.cart.product.SKU,
+            'Category': i.order.cart.product.product_category,
+            'Qty': i.order.cart.qty,
+            'Size': i.order.cart.product_size,
+            'Order ID': i.order.order,
+            'Return Reason': i.order_return_message,
+            'Return Shipping Fee': f'₹{i.return_shipping_Fee}',
+            'Created Date': f"{i.return_date.day} {i.return_date.strftime('%b')}'{i.return_date.strftime('%y')}",
+            'Return ID': i.returns,
+        } for i in filter_data]
+        return JsonResponse({'Message': 'Filter By: Return Date', 'Filter Data': all_returns})
+    except Exception as e:
+        return JsonResponse({'Message': e.__str__(), 'Filter Data': None})

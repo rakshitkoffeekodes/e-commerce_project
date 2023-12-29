@@ -34,4 +34,6 @@ urlpatterns = [
     path('date_growth/', views.date_growth),
     path('return_tracking/', views.return_tracking),
     path('return_overview/', views.return_overview),
+    path('return_filter_category/', views.return_filter_category),
+    path('return_filter_date/', views.return_filter_date),
 ]

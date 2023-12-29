@@ -5,7 +5,7 @@ from .models import *
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Register
-        fields = '__all__'
+        fields = ['first_name', 'last_name', 'email', 'mobile_no', 'address']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -21,6 +21,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class AcceptSerializer(serializers.ModelSerializer):
+    order = OrderSerializer()
+    product = ProductSerializer()
+
     class Meta:
         model = Accept
         fields = '__all__'
