@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from base.serlializers import *
 from .models import *
 
 
@@ -15,14 +16,13 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Order
         fields = '__all__'
 
 
 class AcceptSerializer(serializers.ModelSerializer):
-    order = OrderSerializer()
-    product = ProductSerializer()
 
     class Meta:
         model = Accept

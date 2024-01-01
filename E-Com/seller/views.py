@@ -288,11 +288,18 @@ def view_all_product(request):
         seller_user = Register.objects.get(email=request.session['email'])
         all_product = Product.objects.filter(product_seller=seller_user)
         serial = ProductSerializer(all_product, many=True)
-        products = [{'Images': i.get('product_images'), 'SKU': i.get('SKU'), 'Name': i.get('product_name'),
-                     'Product Category': i.get('product_category'), 'Product Size': i.get('product_size'),
-                     'Product Color': i.get('product_color'), 'Product Date': i.get('product_date')} for i in
-                    serial.data]
-        return JsonResponse({'Message': 'All Product', 'Products': products})
+        for view in serial.data:
+            view.pop('id')
+            view.pop('product_sale_price')
+            view.pop('product_quantity')
+            view.pop('product_sub_category')
+            view.pop('product_branding')
+            view.pop('product_tags')
+            view.pop('product_fabric')
+            view.pop('product_description')
+            view.pop('product')
+            view.pop('product_seller')
+        return JsonResponse({'Message': 'All Product', 'Products': serial.data})
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Products': None})
 
@@ -381,15 +388,21 @@ def inventory(request):
         seller_user = Register.objects.get(email=request.session['email'])
         all_catalog = Product.objects.filter(product_seller=seller_user)
         serial = ProductSerializer(all_catalog, many=True)
-        product_info = [
-            {'image': i.got('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
-             'Price': i.get('product_price'), 'Variation': i.get('product_size'),
-             'Current Stock': i.get('product_quantity'), 'Status': 'Out Of Stock'} if i.get('product_quantity') == 0
-            else {'image': i.get('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
-                  'Price': i.get('product_price'), 'Variation': i.get('product_size'),
-                  'Current Stock': i.get('product_quantity')} for i in serial.data]
 
-        return JsonResponse({'Message': 'Inventory', 'Stock': product_info})
+        for data in serial.data:
+            data.pop('id')
+            data.pop('product_sale_price')
+            data.pop('product_category')
+            data.pop('product_sub_category')
+            data.pop('product_branding')
+            data.pop('product_tags')
+            data.pop('product_color')
+            data.pop('product_fabric')
+            data.pop('product_description')
+            data.pop('product_date')
+            data.pop('product')
+            data.pop('product_seller')
+        return JsonResponse({'Message': 'Filter Category', 'Stock': serial.data})
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Stock': None})
 
@@ -416,14 +429,22 @@ def inventory_filter_category(request):
         category_filter = Product.objects.filter(product_seller=seller_user, product_category=category)
         serial = ProductSerializer(category_filter, many=True)
         if len(category_filter) != 0:
-            product_info = [
-                {'image': i.got('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
-                 'Price': i.get('product_price'), 'Variation': i.get('product_size'),
-                 'Current Stock': i.get('product_quantity'), 'Status': 'Out Of Stock'} if i.get('product_quantity') == 0
-                else {'image': i.get('product_images'), 'Name': i.get('product_name'), 'SKU': i.get('SKU'),
-                      'Price': i.get('product_price'), 'Variation': i.get('product_size'),
-                      'Current Stock': i.get('product_quantity')} for i in serial.data]
-            return JsonResponse({'Message': 'Filter Category', 'Data': product_info})
+
+            for data in serial.data:
+                data.pop('id')
+                data.pop('product_sale_price')
+                data.pop('product_category')
+                data.pop('product_sub_category')
+                data.pop('product_branding')
+                data.pop('product_tags')
+                data.pop('product_color')
+                data.pop('product_fabric')
+                data.pop('product_description')
+                data.pop('product_date')
+                data.pop('product')
+                data.pop('product_seller')
+
+            return JsonResponse({'Message': 'Filter Category', 'Data': serial.data})
         else:
             return JsonResponse({'Message': 'Category is Not exist', 'Data': None})
     except Exception as e:
@@ -856,10 +877,10 @@ def filter_category(request):
 
 @api_view(['POST'])
 def date_growth(request):
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
+    start_time = datetime.time(00, 00, 00)
+    end_time = datetime.time(23, 59, 59)
     try:
         filter_data_list = []
         seller_user = Register.objects.get(email=request.session['email'])
@@ -980,10 +1001,10 @@ def return_filter_category(request):
 
 @api_view(['POST'])
 def return_filter_date(request):
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
+    start_time = datetime.time(00, 00, 00)
+    end_time = datetime.time(23, 59, 59)
     try:
 
         seller_user = Register.objects.get(email=request.session['email'])
