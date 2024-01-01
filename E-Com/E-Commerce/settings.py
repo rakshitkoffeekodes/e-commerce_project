@@ -38,9 +38,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'seller',
-    'base',
+    'buyer',
     'rest_framework',
     'openpyxl',
+
+
+    # "seller.apps.SellerAppConfig"
 ]
 
 MIDDLEWARE = [

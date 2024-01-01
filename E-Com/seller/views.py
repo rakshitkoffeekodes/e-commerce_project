@@ -3,7 +3,7 @@ import datetime
 import random
 import openpyxl
 import xlsxwriter
-from base.models import *
+from ..buyer.models import *
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.http import JsonResponse
@@ -12,7 +12,8 @@ from django.contrib.auth.hashers import make_password, check_password
 from .serilizers import *
 from django.conf import settings
 from django.core.mail import send_mail
-from base.serlializers import *
+# from buyer.serlializers import *
+
 
 
 # Create your views here.
