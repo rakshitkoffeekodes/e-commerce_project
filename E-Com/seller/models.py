@@ -1,6 +1,7 @@
-from buyer.model import *
+# from buyer.model import *
 # from . import BuyerRegistration
 from django.db import models
+from base.models import *
 
 
 class Register(models.Model):

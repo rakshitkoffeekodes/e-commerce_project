@@ -38,9 +38,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'seller',
-    'buyer',
+    'base',
     'rest_framework',
     'openpyxl',
+
 
 
     # "seller.apps.SellerAppConfig"
@@ -83,13 +84,15 @@ WSGI_APPLICATION = 'E-Commerce.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'e-commerce',
+        'NAME': 'ecommerce',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': 'localhost',
         'PORT': '3306',
     }
 }
+
+
 
 
 # Password validation
@@ -144,3 +147,8 @@ EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'rakshitdharaiya@gmail.com'
 EMAIL_HOST_PASSWORD = 'tubnvwqljrcvzddp'
+
+STRIPE_SECRET_KEY = 'sk_test_51OU5FMSAvmPjZJjlUaHxMRIUgI3enoGyrOyvGh1LP5OOl7UuUDZxkJemUPCCi6hWVZ2yWyxU7ADIe7tsN5wVdHVN00D0dS4gP0'
+STRIPE_PUBLISHABLE_KEY = 'pk_test_51OU5FMSAvmPjZJjl0O62wWXTtLJhtIEqVQmchU5wEBgOATPaDg1t8Im8giY3Hu02eVbEREV6D32ujlRv1WbOs7tG00RcYtVqtM'
+
+
