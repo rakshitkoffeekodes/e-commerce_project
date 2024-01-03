@@ -14,7 +14,11 @@ urlpatterns = [
     path("user_view_address", views.user_view_address, name="user_view_address"),
     path("user_update_address", views.user_update_address, name="user_update_address"),
     path("user_delete_address", views.user_delete_address, name="user_delete_address"),
+<<<<<<< Updated upstream:E-Com/buyer/urls.py
     path("user_insert_cart", views.user_insert_cart),
+=======
+    path("user_insert_cart", views.user_insert_cart, name="user_insert_address"),
+>>>>>>> Stashed changes:E-Com/base/urls.py
     # path("user_view_cart", views.user_view_cart, name="user_view_cart"),
     # path("user_update_cart", views.user_update_cart, name="user_update_cart"),
     # path("user_delete_cart", views.user_delete_cart, name="user_delete_cart"),

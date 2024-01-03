@@ -218,6 +218,7 @@ def user_insert_cart(request):
     product=request.POST['product']
     product_size=request.POST['product_size']
     try:
+<<<<<<< Updated upstream:E-Com/buyer/views.py
         buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
         member = BuyerCart(qty=qty, total=total,
                                   product_size=product_size, product=product,buyer=buyer_user)
@@ -228,4 +229,29 @@ def user_insert_cart(request):
 
     except Exception as e:
         return JsonResponse({'Message': e.__str__()})
+=======
+        # Validate buyer_id and create a BuyerCart instance
+        if buyer_id:
+            buyer_cart = BuyerCart(buyer_id=buyer_id,product=product,qty=qty,
+                                   product_size=product_size,status=status,total=total)
+            buyer_cart.save()
+            return Response("BuyerCart created successfully.")
+        else:
+            return Response("Invalid buyer_id provided.")
+    except Exception as e:
+        return Response(f"Error: {str(e)}")
+
+
+# @api_view(['POST'])
+# def user_view_cart(request):
+#     member = BuyerCart.objects.all()
+#
+#     try:
+#         serializer = BuyerCart(member, many=True)
+#         return Response(serializer.data)
+#     except Exception as e:
+#         return JsonResponse({'Message': e.__str__()})
+#
+
+>>>>>>> Stashed changes:E-Com/base/views.py
 
