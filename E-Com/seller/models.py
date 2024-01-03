@@ -7,7 +7,7 @@ class Register(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    mobile_no = models.CharField(unique=True, max_length=10, default='+ 91')
+    mobile_no = models.CharField(max_length=10, default='+ 91')
     address = models.TextField()
     password = models.CharField(max_length=100)
 

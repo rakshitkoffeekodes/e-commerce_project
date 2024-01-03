@@ -74,7 +74,7 @@ class Payment(models.Model):
         return self.order
 
 
-class Return (models.Model):
+class Return(models.Model):
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     order = models.ForeignKey(Payment, on_delete=models.CASCADE)
     returns = models.CharField(max_length=100)
@@ -82,3 +82,19 @@ class Return (models.Model):
     return_shipping_Fee = models.IntegerField(default=0)
     return_date = models.DateTimeField(null=True)
     status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str(self.order)
+
+
+class BuyerFeedback(models.Model):
+    feedback_id = models.AutoField(primary_key=True, null=False)
+    feedback_login = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
+    feedback_product = models.ForeignKey("seller.Product", on_delete=models.CASCADE)
+    feedback_description = models.TextField(max_length=500)
+    feedback_datetime = models.DateTimeField(auto_now_add=True)
+    feedback_rating = models.IntegerField()
+    feedback_photo = models.FileField(upload_to='buyer/', null=True)
+
+    def __str__(self):
+        return str(self.feedback_login)

@@ -19,6 +19,7 @@ urlpatterns = [
     path('edit_stock/', views.edit_stock),
     path('inventory_filter_category/', views.inventory_filter_category),
     path('inventory_edit_catalog/', views.inventory_edit_catalog),
+    path('view_rating/', views.view_rating),
     path('pending_order/', views.pending_order),
     path('filter_order_date/', views.filter_order_date),
     path('filter_dispatch_date/', views.filter_dispatch_date),
