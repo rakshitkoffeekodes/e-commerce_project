@@ -10,12 +10,11 @@ import stripe
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
 import uuid
+from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpResponse
 
 # Create your views here.
-
-
 @api_view(['POST'])
 def user_registration(request):
     user_firstname = request.POST["user_firstname"]
@@ -23,22 +22,24 @@ def user_registration(request):
     user_email_id = request.POST["user_email_id"]
     user_password = request.POST["user_password"]
     user_confirm_password = request.POST["user_confirm_password"]
+
     try:
+        if BuyerRegistration.objects.filter(user_email_id=user_email_id).exists():
+            return Response({"error": "Email is already registered"}, status=400)
 
         if user_password == user_confirm_password:
             user = User.objects.create_user(username=user_email_id, password=user_password)
             member = BuyerRegistration(user_firstname=user_firstname, user_lastname=user_lastname,
                                        user_email_id=user_email_id, user_password=user_password)
-            member.save()
             user.save()
+            member.save()
             serializer = BuyerRegistrationSerializer(member)
             return Response(serializer.data)
         else:
-            return Response({"error": "password and confirm_password is not the same"}, status=400)
+            return Response({"error": "Password and confirm_password do not match"}, status=400)
 
     except Exception as e:
-        return Response({"error": e.__str__()}, status=404)
-
+        return Response({"error": str(e)}, status=404)
 
 @api_view(['POST'])
 def user_login(request):
@@ -47,8 +48,11 @@ def user_login(request):
 
     try:
         request.session['user_email_id'] = user_email_id
-        BuyerRegistration.objects.get(user_email_id=user_email_id, user_password=user_password)
-        return Response({"message": " user successfully login"}, status=200)
+        member=BuyerRegistration.objects.get(user_email_id=user_email_id)
+        if member.user_password ==user_password:
+            return Response({"message": " user successfully login"}, status=200)
+        else:
+            return Response({"message": " Invalid password"}, status=200)
 
     except BuyerRegistration.DoesNotExist:
         return Response({"error": f"Invalid credentials {BuyerRegistration.__name__}"}, status=404)
@@ -59,18 +63,24 @@ def user_login(request):
 
 @api_view(['POST'])
 def user_profile(request):
+
     try:
         buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        path = request.META['HTTP_HOST']
 
-        path1 = 'http://' + path + '/media/' + str(buyer_user.user_photo)
-        buyer_user.user_photo = path1
+        if buyer_user!="":
+            path = request.META['HTTP_HOST']
 
-        serializer = BuyerRegistrationSerializer(buyer_user)
-        return Response({"message": " user profile successfully view.", "data": serializer.data}, status=200)
+            path1 = 'http://' + path + '/media/' + str(buyer_user.user_photo)
+            buyer_user.user_photo = path1
+
+            serializer = BuyerRegistrationSerializer(buyer_user)
+            return Response({"message": " user profile successfully view.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
 
     except BuyerRegistration.DoesNotExist:
-        return Response({"error": f"Error in view user profile updated: {BuyerRegistration.__name__}"}, status=404)
+        return Response({"error": f"Error in view user profile : {BuyerRegistration.__name__}"}, status=404)
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
@@ -82,30 +92,37 @@ def user_update(request):
     user_lastname = request.POST.get("user_lastname", "")
     user_mobile_no = request.POST.get("user_mobile_no", "")
     user_address = request.POST.get("user_address", "")
-    user_photo = request.FILES.get("user_photo")
+    user_photo = request.FILES.get("user_photo", "")
 
     try:
+        if not (user_mobile_no.isdigit() and len(user_mobile_no) == 10):
+            return Response({"error": "Invalid mobile number. Please provide a 10-digit number."}, status=400)
+
+        if BuyerRegistration.objects.filter(user_mobile_no=user_mobile_no).exists():
+            return Response({"error": "Mobile number is already registered"}, status=400)
+
         buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        if not user_firstname == '':
+
+        if user_firstname:
             buyer_user.user_firstname = user_firstname
-        if not user_lastname == '':
+        if user_lastname:
             buyer_user.user_lastname = user_lastname
-        if not user_mobile_no == '':
+        if user_mobile_no:
             buyer_user.user_mobile_no = user_mobile_no
-        if not user_address == '':
+        if user_address:
             buyer_user.user_address = user_address
-        if not user_photo == '':
+        if user_photo:
             buyer_user.user_photo = user_photo
+
         buyer_user.save()
         serializer = BuyerRegistrationSerializer(buyer_user)
-        return Response({"message": " user profile successfully updated.", "data": serializer.data}, status=200)
+        return Response({"message": "User profile successfully updated.", "data": serializer.data}, status=200)
 
     except BuyerRegistration.DoesNotExist:
-        return Response({"error": f"Error in  user profile updated: {BuyerRegistration.__name__}"}, status=400)
+        return Response({"error": f"Error in user profile update: {BuyerRegistration.__name__}"}, status=404)
 
     except Exception as e:
-        return Response({"error": e.__str__()}, status=404)
-
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['POST'])
 def user_search_product(request):
@@ -136,10 +153,14 @@ def user_search_product(request):
 
 @api_view(['POST'])
 def user_view_product(request):
-    buyer_user = Product.objects.all()
     try:
-        serializer = ProductSerializer(buyer_user, many=True)
-        return Response({"message": " user view product successfully.", "data": serializer.data}, status=200)
+        buyer_user = Product.objects.all()
+        if len(buyer_user)!=0:
+            serializer = ProductSerializer(buyer_user, many=True)
+            return Response({"message": " user view product successfully.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " product is empty ."}, status=400)
+
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
@@ -155,6 +176,13 @@ def user_insert_address(request):
     ord_rec_mobile_no = request.POST["ord_rec_mobile_no"]
 
     try:
+        if not (pincode.isdigit() and len(pincode) == 6):
+            return Response({"error": "Invalid pincode number. Please provide a 6-digit number."}, status=400)
+
+        if not (ord_rec_mobile_no.isdigit() and len(ord_rec_mobile_no) == 10):
+            return Response({"error": "Invalid mobile number. Please provide a 10-digit number."}, status=400)
+
+
         member = Checkout_details(street_address=street_address, apartment_address=apartment_address,
                                   pincode=pincode, city=city, ord_rec_mobile_no=ord_rec_mobile_no,
                                   select_state=select_state, ord_rec_name=ord_rec_name)
@@ -167,10 +195,14 @@ def user_insert_address(request):
 
 @api_view(['POST'])
 def user_view_address(request):
-    member = Checkout_details.objects.all()
     try:
-        serializer = BuyerAddressSerializer(member, many=True)
-        return Response({"message": " user  address successfully view.", "data": serializer.data}, status=200)
+        member = Checkout_details.objects.all()
+        if member !="":
+            serializer = BuyerAddressSerializer(member, many=True)
+            return Response({"message": " user  address successfully view.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " address is empty ."}, status=400)
+
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
@@ -185,10 +217,20 @@ def user_update_address(request):
     select_state = request.POST.get("select_state")
     ord_rec_name = request.POST.get("ord_rec_name")
     ord_rec_mobile_no = request.POST.get("ord_rec_mobile_no")
+    print(len(address))
 
     try:
+        member = Checkout_details.objects.all()
+        if (len(address) == 0) or len(address)>=len(member) :
+            return Response({"error": "Invalid address id. Please select valid address id."}, status=400)
+
+        if not (pincode.isdigit() and len(pincode) == 6):
+            return Response({"error": "Invalid pincode number. Please provide a 6-digit number."}, status=400)
+
+        if not (ord_rec_mobile_no.isdigit() and len(ord_rec_mobile_no) == 10):
+            return Response({"error": "Invalid mobile number. Please provide a 10-digit number."}, status=400)
+
         member = Checkout_details.objects.get(address=address)
-        print(member)
         if not street_address == '':
             member.street_address = street_address
         if not apartment_address == '':
@@ -210,11 +252,20 @@ def user_update_address(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
+    except Checkout_details.DoesNotExist:
+        return Response({"error": f"Error in address profile update: {Checkout_details.__name__}"}, status=404)
+
+
 
 @api_view(['POST'])
 def user_delete_address(request):
     address_id = request.POST["address_id"]
+    print(type(address_id))
     try:
+        member = Checkout_details.objects.all()
+        if (len(address_id) == 0) or len(address_id) >= len(member) :
+            return Response({"error": "Invalid address id. Please select valid address id."}, status=400)
+
         member = Checkout_details.objects.get(address_id=address_id)
         member.delete()
         return Response({"message": " user profile successfully deleted."}, status=200)
@@ -226,15 +277,17 @@ def user_delete_address(request):
 
 @api_view(['POST'])
 def user_insert_cart(request):
-    qty = request.POST['qty']
     product_color = request.POST['product_color']
     product_size = request.POST['product_size']
     product = request.POST['product']
     try:
-        p = Product.objects.get(id=product)
+        product_value = Product.objects.get(id=product)
+        if not product_value=="":
+            return Response({"error": "Product is empty ."}, status=400)
+
         buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        member = BuyerCart(qty=qty, product_color=product_color, product_size=product_size, total=p.product_price,
-                           buyer=buyer_user, product=p)
+        member = BuyerCart(qty=1, product_color=product_color, product_size=product_size, total=product_value.product_price,
+                           buyer=buyer_user, product=product_value)
         member.save()
         serializer = BuyerCartSerializer(member)
         return Response({"message": " user cart successfully insert .", "data": serializer.data}, status=200)
@@ -242,14 +295,22 @@ def user_insert_cart(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
+    except Product.DoesNotExist:
+        return Response({"error": f"Error in  cart  insert: {Product.__name__}"}, status=404)
+
 
 @api_view(['POST'])
 def user_view_cart(request):
-    member = BuyerCart.objects.all()
+
 
     try:
-        serializer = BuyerCartSerializer(member, many=True)
-        return Response({"message": " user cart successfully view .", "data": serializer.data}, status=200)
+        member = BuyerCart.objects.all()
+        if member != "":
+            serializer = BuyerCartSerializer(member, many=True)
+            return Response({"message": " user cart successfully view .", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " address is empty ."}, status=400)
+
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
@@ -262,21 +323,31 @@ def user_update_cart(request):
     product_size = request.POST.get('product_size')
 
     try:
+
+        member = Checkout_details.objects.all()
+        if not 1 <= int(qty) <= 100 and (qty.isdigit()):
+            return Response({"message": "Invalid qty number. Qty should be between 1 and 100."}, status=400)
+
+        if (len(cart) == 0) or (len(cart)<=len(member)) :
+            return Response({"error": "Invalid cart id. Please select valid cart id."}, status=400)
+
         member = BuyerCart.objects.get(pk=cart)
         total = int(qty) * member.total
 
-        if not qty == '':
-            member.qty = qty
-        if not product_color == '':
-            member.product_color = product_color
-        if not product_size == '':
-            member.product_size = product_size
-        if not total == '':
-            member.total = total
-
-        member.save()
-        serializer = BuyerCartSerializer(member)
-        return Response({"message": " user cart successfully update.", "data": serializer.data}, status=200)
+        if not member=="":
+            if not qty == '':
+                member.qty = qty
+            if not product_color == '':
+                member.product_color = product_color
+            if not product_size == '':
+                member.product_size = product_size
+            if not total == '':
+                member.total = total
+            member.save()
+            serializer = BuyerCartSerializer(member)
+            return Response({"message": " user cart successfully update.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " cart is empty ."}, status=400)
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
@@ -284,8 +355,11 @@ def user_update_cart(request):
 @api_view(['POST'])
 def user_delete_cart(request):
     cart = request.POST['cart']
-    print(cart)
     try:
+        member = Checkout_details.objects.all()
+        if (len(cart) == 0) or (len(cart)<=len(member)):
+            return Response({"error": "Invalid cart id. Please select valid cart id."}, status=400)
+
         member = BuyerCart.objects.get(id=cart)
         member.delete()
         return Response({"message": " user cart successfully deleted."}, status=200)
@@ -303,18 +377,34 @@ def user_insert_buynow(request):
     product = request.POST['product']
     Checkout = request.POST['Checkout']
     try:
+        product_value = Product.objects.all()
+        chekout_value = Checkout_details.objects.all()
+
+        if not 1 <= int(qty) <= 100 and (qty.isdigit()):
+            return Response({"message": "Invalid qty number. Qty should be between 1 and 100."}, status=400)
+
+        if (len(product) == 0) or len(product)>=len(product_value) :
+            return Response({"error": "Invalid product id. Please select valid product id."}, status=400)
+
+        if (len(Checkout) == 0) or len(Checkout)>=len(chekout_value) :
+            return Response({"error": "Invalid chekout id. Please select valid chekout id."}, status=400)
+
 
         buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        p = Product.objects.get(id=product)
-        c = Checkout_details.objects.get(address=Checkout)
+        product_data = Product.objects.get(id=product)
+        checkout_data = Checkout_details.objects.get(address=Checkout)
+        total = int(qty) * product_data.product_price
 
-        total = int(qty) * p.product_price
-        member = BuyerPurchase(qty=qty, total=total,
-                               buyer=buyer_user, product=p, checkout=c)
+        if not product_data=="" and checkout_data=="":
+            member = BuyerPurchase(qty=qty, total=total,
+                                   buyer=buyer_user, product=product_data, checkout=checkout_data)
 
-        member.save()
-        serializer = BuyercartPurchaseSerializer(member)
-        return Response({"message": " user buy Product successfully .", "data": serializer.data}, status=200)
+            member.save()
+            serializer = BuyercartPurchaseSerializer(member)
+            return Response({"message": " user buy Product successfully .", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " product is empty ."}, status=400)
+
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
@@ -326,6 +416,17 @@ def user_insert_cart_buynow(request):
     checkout_address = request.POST.get('Checkout')
 
     try:
+        cart_value = BuyerCart.objects.all()
+        checkout_value = Checkout_details.objects.all()
+
+        # Validate cart_id
+        if not cart_id or not cart_id.isdigit() or int(cart_id) < 1:
+            return Response({"error": "Invalid cart id. Please select a valid cart id."}, status=400)
+
+        # Validate checkout_address
+        if not checkout_address or len(checkout_address) >= len(checkout_value):
+            return Response({"error": "Invalid checkout address. Please select a valid checkout address."}, status=400)
+
         buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
         cart = BuyerCart.objects.get(id=cart_id)
         checkout = Checkout_details.objects.get(address=checkout_address)
@@ -455,30 +556,64 @@ def create_payment_intent(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
+@api_view(['POST'])
+def stripe_config(request):
+    stripe_config = {'publicKey': settings.STRIPE_PUBLISHABLE_KEY}
+    return Response(stripe_config)
 
-
+@csrf_exempt
 @api_view(['POST'])
 def payment_intent(request):
-    details = BuyerPurchase.objects.get(id=1)
-    print(details.total)
-    return Response("insert data")
-    # dataDict = dict(request.data)
-    # price = dataDict['price'][0]
-    # product_name = dataDict['product_name'][0]
+    domain_url = 'http://127.0.0.1:8000'
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    success_url = 'https://example.com/success/'
+    cancel_url = 'https://example.com/cancel/'
     # try:
-    #   checkout_session = stripe.checkout.Session.create(
-    #     line_items =[{
-    #     'price_data' :{
-    #       'currency' : 'usd',
-    #         'product_data': {
-    #           'name': product_name,
-    #         },
-    #       'unit_amount': price
-    #     },
-    #     'quantity' : 1
-    #   }],
-    #     mode= 'payment',
-    #     # success_url= FRONTEND_CHECKOUT_SUCCESS_URL,
-    #     # cancel_url= FRONTEND_CHECKOUT_FAILED_URL,
-    #     )
+    # checkout_session = stripe.checkout.Session.create(
+    #     success_url=domain_url + success_url,
+    #     cancel_url=domain_url + cancel_url,
+    #     payment_method_types=['card'],
+    #     mode='payment',
+    #     line_items=[
+    #         {
+    #             'name': 'T-shirt',
+    #             'quantity': 1,
+    #             'currency': 'usd',
+    #             'amount': '2000',
+    #         }
+    #     ]
+    # )
+    checkout_session = stripe.checkout.Session.create(
+        success_url=domain_url + success_url,
+        cancel_url=domain_url + cancel_url,
+        payment_method_types=['card'],
+        mode='payment',
+        line_items=[
+            {
+                'name': 'T-shirt',
+                'quantity': 1,
+                'currency': 'usd',
+                'amount': '2000',
+            }
+        ]
+    )
+    print("Checkout Session:", checkout_session)
+    return Response({'sessionId': checkout_session['id']})
+    # return Response({'sessionId': checkout_session['id']})
+    # except Exception as e:
+    #     return Response({'error': str(e)})
 
+# def payment_intent(request):
+#     # ... (existing code)
+#
+#
+#
+#     print(f"Success URL: {success_url}")
+#     print(f"Cancel URL: {cancel_url}")
+#
+#     checkout_session = stripe.checkout.Session.create(
+#         success_url=success_url,
+#         cancel_url=cancel_url,
+#         # other parameters...
+#     )
+#     # ... (remaining code)

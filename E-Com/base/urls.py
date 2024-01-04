@@ -25,5 +25,6 @@ urlpatterns = [
     path("user_view_feedback", views.user_view_feedback, name="user_view_feedback"),
     path("create_payment_intent", views.create_payment_intent, name="create_payment_intent"),
     path("payment_intent", views.payment_intent, name="payment_intent"),
+    path("stripe_config", views.stripe_config, name="stripe_config"),
 
 ]
