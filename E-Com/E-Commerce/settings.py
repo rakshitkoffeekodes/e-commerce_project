@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-j+16kvzcbei6z^#1ms4o8u=xr79msycm*mcv_$b1tt@rga&@*h'
+SECRET_KEY = 'django-insecure-j+16kvzcbei6z^#1ms4o8u=xr79msvc*mcv_$b1tt@rga&@*h'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -41,7 +42,41 @@ INSTALLED_APPS = [
     'base',
     'rest_framework',
     'openpyxl',
+    'rest_framework_simplejwt',
 ]
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ROTATE_REFRESH_TOKEN': False,
+    'BLACK_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': "HS256",
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': "",
+    'AUDIENCE': None,
+    'JSON_ENCODER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+
+    'AUTH_HEADER_TYPES': ("Bearer",),
+    'AUTH_HEADER_NAME': "HTTP_AUTHORIZATION",
+    'USER_ID_FIELD': "id",
+    'USER_ID_CLAIM': "user_id",
+    'USER_AUTHENTICATION_RULE': "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+
+    'AUTH_TOKEN_CLASSES': ("rest_framework_simplejwt.tokens.AccessToken",),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_TYPE_CLASS': "rest_framework_simplejwt.models.TokenUser",
+
+    'JTI_CLAIM': 'jti',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': "refresh_exp",
+    'SLIDING_TOKEN_LIFETIME': timedelta(days=1),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=30),
+
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -142,5 +177,8 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = 'rakshitdharaiya@gmail.com'
 EMAIL_HOST_PASSWORD = 'tubnvwqljrcvzddp'
 
-STRIPE_SECRET_KEY = 'sk_test_51OUTIkSFfPFigRS7ZdnW9V6owAs2EloAFyVgeHc1SifazH4bxJHjTHlo7IfWCIdV6x4lLpKpdmjVOBjTIlOOvQLA00VS9Xyw3z'
-STRIPE_PUBLISHABLE_KEY = 'pk_test_51OUTIkSFfPFigRS7nIK9NqODHbuCVuGn7WfaaK4RKdyF11QxdqxLIioGA1VPZOtkq0mXwqDjSekZ5QPVPsjRsTj500TL97uQkP'
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}

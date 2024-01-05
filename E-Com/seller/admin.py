@@ -5,7 +5,7 @@ from .models import *
 # Register your models here.
 
 class register(admin.ModelAdmin):
-    list_display = ('id', 'first_name', 'last_name', 'email', 'password', 'mobile_no', 'address')
+    list_display = ('id', 'first_name', 'last_name', 'username', 'email', 'password', 'mobile_no', 'address')
 
 
 class product(admin.ModelAdmin):

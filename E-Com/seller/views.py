@@ -3,12 +3,17 @@ import datetime
 import random
 import openpyxl
 import xlsxwriter
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.http import JsonResponse
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTTokenUserAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
 from .serilizers import *
 from django.conf import settings
 from django.core.mail import send_mail
@@ -42,7 +47,7 @@ def register(request):
     try:
         mobile_data = Register.objects.filter(mobile_no=mobile_no)
         email_data = Register.objects.filter(email=email)
-        if not email.endswith('@gmail.com'):
+        if not email.endswith('.com'):
             return JsonResponse({'Message': 'Invalid email address.'}, status=400)
         if len(mobile_no) != 10:
             return JsonResponse({'Message': 'Invalid mobile number.'}, status=400)
@@ -61,9 +66,9 @@ def register(request):
             "password": password,
         }
         return JsonResponse(
-            {'status': 'success', 'Message': 'OTP sent successfully. Please check your email for the OTP.'}, status=200)
+            {'Message': 'OTP sent successfully. Please check your email for the OTP.'}, status=200)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'Message': e.__str__()}, status=400)
+        return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['POST'])
@@ -74,9 +79,17 @@ def otp_verification(request):
             Register.objects.create(
                 first_name=temp["first_name"],
                 last_name=temp["last_name"],
+                username=temp["email"].split('@')[0],
                 email=temp["email"],
                 mobile_no=temp["mobile_no"],
-                password=temp["password"],
+                password=make_password(temp["password"]),
+            )
+            User.objects.create(
+                username=temp["email"].split('@')[0],
+                email=temp["email"],
+                first_name=temp["first_name"],
+                last_name=temp["last_name"],
+                password=make_password(temp["password"])
             )
             return JsonResponse({'Message': 'Register Success'}, status=200)
         else:
@@ -92,9 +105,16 @@ def login(request):
 
     try:
         user = Register.objects.get(email=email)
-        if password == user.password:
-            request.session['email'] = email
-            return JsonResponse({'Message': 'Login Successfully.'}, status=200)
+        if check_password(password, user.password):
+            auth = authenticate(username=user.username, password=password)
+            if auth is not None:
+                refresh = RefreshToken.for_user(user)
+                request.session['email'] = email
+                return JsonResponse(
+                    {'Message': 'Login Successfully.', 'refresh': str(refresh), 'access': str(refresh.access_token)},
+                    status=200)
+            else:
+                return JsonResponse({'Message': 'User credentials were not provided.'}, status=400)
         else:
             return JsonResponse({'Message': 'Password incorrect.'}, status=400)
     except Register.DoesNotExist:
@@ -113,6 +133,8 @@ def logout(request):
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def profile(request):
     try:
         if 'email' in request.session:
@@ -120,14 +142,17 @@ def profile(request):
             path = request.META['HTTP_HOST']
             path1 = 'http://' + path + '/media/' + str(seller_user.profile_picture)
             serial = RegisterSerializer(seller_user)
-            return JsonResponse({'status': 'success', 'Message': 'Profile', 'Profile': serial.data, 'Profile Image': path1})
+            return JsonResponse(
+                {'Message': 'Profile', 'Profile': serial.data, 'Profile Image': path1}, status=200)
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'Message': e.__str__(), 'Profile': None, 'Profile Image': None})
+        return JsonResponse({'Message': e.__str__(), 'Profile': None, 'Profile Image': None}, status=400)
 
 
 @api_view(['PUT'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def update_profile(request):
     profile_picture = request.FILES.get('profile_image', '')
     first_name = request.POST.get('first_name', '')
@@ -158,6 +183,8 @@ def update_profile(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def add_product(request):
     product_category = request.POST['product_category'].upper()
     product_sub_category = request.POST['product_sub_category'].upper()
@@ -213,6 +240,8 @@ def add_product(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def bulk_upload_catalog(request):
     product_category = request.POST['product_category'].upper()
     product_sub_category = request.POST['product_sub_category'].upper()
@@ -259,6 +288,8 @@ def bulk_upload_catalog(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def get_image_link(request):
     upload_image = request.FILES.getlist('upload_image')
     try:
@@ -277,6 +308,8 @@ def get_image_link(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def upload_catalog_file(request):
     upload_file = request.FILES['upload_file']
     try:
@@ -324,6 +357,8 @@ def upload_catalog_file(request):
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def view_all_product(request):
     try:
         if 'email' in request.session:
@@ -396,6 +431,8 @@ def product_update(request, update, product_images, SKU, product_name, product_b
 
 
 @api_view(['PUT'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def update_product(request):
     primary_key = request.POST['primary_key']
     product_images = request.FILES.getlist('product_images')
@@ -417,18 +454,21 @@ def update_product(request):
             seller_user = Register.objects.get(email=request.session['email'])
             update = Product.objects.get(product_seller=seller_user, id=primary_key)
             update_data = {
-                'Data': product_update(request, update, product_images, SKU, product_name, product_branding, product_tags,
+                'Data': product_update(request, update, product_images, SKU, product_name, product_branding,
+                                       product_tags,
                                        product_color, product_fabric, product_description)}
             return JsonResponse({'Message': 'Update Product Successfully.'}, status=200)
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Product.DoesNotExist:
-        return JsonResponse({'Message': 'ID is not exist'})
+        return JsonResponse({'Message': 'ID is not exist'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['DELETE'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def delete_product(request):
     primary_key = request.POST['primary_key']
     try:
@@ -446,12 +486,14 @@ def delete_product(request):
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Product.DoesNotExist:
-        return JsonResponse({'Message': 'ID is not exist'})
+        return JsonResponse({'Message': 'ID is not exist'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def inventory(request):
     try:
         if 'email' in request.session:
@@ -479,6 +521,8 @@ def inventory(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def edit_stock(request):
     primary_key = request.POST['primary_key']
     stock = request.POST['stock']
@@ -498,12 +542,14 @@ def edit_stock(request):
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Product.DoesNotExist:
-        return JsonResponse({'Message': 'ID is not exist.'})
+        return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def inventory_filter_category(request):
     category = request.POST['category'].upper()
     try:
@@ -535,6 +581,8 @@ def inventory_filter_category(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def inventory_edit_catalog(request):
     primary_key = request.POST['primary_key']
     product_images = request.FILES.getlist('product_images', '')
@@ -556,7 +604,8 @@ def inventory_edit_catalog(request):
             seller_user = Register.objects.get(email=request.session['email'])
             update = Product.objects.get(product_seller=seller_user, id=primary_key)
             update_data = {
-                'Data': product_update(request, update, product_images, SKU, product_name, product_branding, product_tags,
+                'Data': product_update(request, update, product_images, SKU, product_name, product_branding,
+                                       product_tags,
                                        product_color, product_fabric, product_description)}
             return JsonResponse({'Message': 'Edit Catalog Successfully.'}, status=200)
         else:
@@ -593,6 +642,8 @@ def rating_product(product_rating, products):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def view_rating(request):
     primary_key = request.POST['primary_key']
     try:
@@ -611,7 +662,7 @@ def view_rating(request):
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Product.DoesNotExist:
-        return JsonResponse({'Message': 'Product is not exist'})
+        return JsonResponse({'Message': 'Product is not exist'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Rating': None}, status=400)
 
@@ -630,6 +681,8 @@ def order_data(view_all_order):
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def pending_order(request):
     try:
         if 'email' in request.session:
@@ -641,7 +694,8 @@ def pending_order(request):
             list2 = [i.order for i in buyer_all_order]
             for i in buyer_order:
                 if i.order not in list2:
-                    company_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
+                    company_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G",
+                                  "H"]
                     id2 = random.choices(company_id, k=9)
                     company = "".join(id2)
                     orders = Order(
@@ -668,6 +722,8 @@ def pending_order(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def filter_order_date(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
@@ -696,6 +752,8 @@ def filter_order_date(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def filter_dispatch_date(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
@@ -718,12 +776,14 @@ def filter_dispatch_date(request):
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except ValueError:
-        return JsonResponse({'Message': 'Date is not valid'})
+        return JsonResponse({'Message': 'Date is not valid'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Filter Order': None}, status=400)
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def order_search(request):
     search = request.POST.get('search', '')
     try:
@@ -735,8 +795,9 @@ def order_search(request):
                 details__cart__product__product_seller=seller_user, status=True)
             if view_all_order.count() != 0 and search != '':
                 search_data = order_data(view_all_order)
-                return JsonResponse({'Message1': 'Search Order', 'Message2': 'Search Order Only SKU, Order ID, Company ID',
-                                     'Search Order': search_data}, status=200)
+                return JsonResponse(
+                    {'Message1': 'Search Order', 'Message2': 'Search Order Only SKU, Order ID, Company ID',
+                     'Search Order': search_data}, status=200)
             else:
                 return JsonResponse(
                     {'Message': 'Product Is Not Found', 'Message2': 'Search Order Only SKU, Order ID, Company ID',
@@ -767,6 +828,8 @@ def accept_data(accept):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def order_accept(request):
     primary_key = request.POST['primary_key']
     id_list = primary_key.split(',')
@@ -780,7 +843,8 @@ def order_accept(request):
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
             seller_user = Register.objects.get(email=request.session['email'])
             if not len(id_list) > 1:
-                accept = Order.objects.get(id=primary_key, status=True, details__cart__product__product_seller=seller_user)
+                accept = Order.objects.get(id=primary_key, status=True,
+                                           details__cart__product__product_seller=seller_user)
                 accept_order = {'Accept': accept_data(accept)}
                 return JsonResponse({'Message': 'Order Accept'}, status=200)
             else:
@@ -790,13 +854,15 @@ def order_accept(request):
                 return JsonResponse({'Message': 'Order Accept'}, status=200)
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
-    except Order.DoesNotExist :
-        return JsonResponse({'Message': 'ID is not exist.'})
+    except Order.DoesNotExist:
+        return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def ready_to_ship(request):
     try:
         if 'email' in request.session:
@@ -848,6 +914,8 @@ def label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def shipping_label(request):
     primary_key = request.POST['primary_key']
     key_list = primary_key.split(',')
@@ -907,6 +975,8 @@ def cancel_data(cancel):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def cancel_order(request):
     primary_key = request.POST['primary_key']
     id_list = primary_key.split(',')
@@ -920,7 +990,8 @@ def cancel_order(request):
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
             seller_user = Register.objects.get(email=request.session['email'])
             if not len(id_list) > 1:
-                cancel = Order.objects.get(id=primary_key, status=True, details__cart__product__product_seller=seller_user)
+                cancel = Order.objects.get(id=primary_key, status=True,
+                                           details__cart__product__product_seller=seller_user)
                 order_cancel = cancel_data(cancel)
                 return JsonResponse({'Message': 'Order Cancel'}, status=200)
             else:
@@ -931,12 +1002,14 @@ def cancel_order(request):
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Order.DoesNotExist:
-        return JsonResponse({'Message': 'ID is not exist.'})
+        return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def cancelled(request):
     try:
         if 'email' in request.session:
@@ -979,6 +1052,8 @@ def pricing_data(product, seller_user):
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def pricing(request):
     try:
         if 'email' in request.session:
@@ -993,6 +1068,8 @@ def pricing(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def edit_pricing(request):
     primary_key = request.POST['primary_key']
     product_price = request.POST['product_price']
@@ -1001,7 +1078,8 @@ def edit_pricing(request):
         if 'email' in request.session:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", " ", ","
             for char in symbol:
-                if primary_key.find(char) != -1 or product_price.find(char) != -1 or product_sale_price.find(char) != -1:
+                if primary_key.find(char) != -1 or product_price.find(char) != -1 or product_sale_price.find(
+                        char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if primary_key.isalpha() or not product_price.isdigit() or not product_sale_price.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
@@ -1014,12 +1092,14 @@ def edit_pricing(request):
         else:
             return JsonResponse({'Message': 'Login First'}, status=401)
     except Product.DoesNotExist:
-        return JsonResponse({'Message': 'ID is not exist.'})
+        return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def filter_category(request):
     category = request.POST['category'].upper()
     try:
@@ -1041,6 +1121,8 @@ def filter_category(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def date_growth(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
@@ -1085,6 +1167,8 @@ def return_data(return_order):
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def return_tracking(request):
     try:
         seller_user = Register.objects.get(email=request.session['email'])
@@ -1092,19 +1176,23 @@ def return_tracking(request):
         view_returns = return_data(return_order)
         return JsonResponse({'Message': 'Tracking Return', 'Return Product': view_returns}, status=200)
     except KeyError:
-        return JsonResponse({'Message': 'Login First'})
+        return JsonResponse({'Message': 'Login First'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Return Product': None}, status=400)
 
 
 @api_view(['GET'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def return_overview(request):
     try:
         if 'email' in request.session:
             seller_user = Register.objects.get(email=request.session['email'])
             product = Product.objects.filter(product_seller=seller_user)
+            print(product)
             view_returns = []
             for i in product:
+                print(i)
                 return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
                                                      order__cart__product__product=i.product)
                 order = Accept.objects.filter(product__product=i.product, product__product_seller=seller_user)
@@ -1141,6 +1229,8 @@ def return_overview(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def return_filter_category(request):
     category = request.POST['category']
     try:
@@ -1163,6 +1253,8 @@ def return_filter_category(request):
 
 
 @api_view(['POST'])
+@authentication_classes([JWTTokenUserAuthentication])
+@permission_classes([IsAuthenticated])
 def return_filter_date(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
