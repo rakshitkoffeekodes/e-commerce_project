@@ -24,7 +24,16 @@ urlpatterns = [
     path("user_insert_feedback", views.user_insert_feedback, name="user_insert_feedback"),
     path("user_view_feedback", views.user_view_feedback, name="user_view_feedback"),
     path("create_payment_intent", views.create_payment_intent, name="create_payment_intent"),
-    path("payment_intent", views.payment_intent, name="payment_intent"),
-    path("stripe_config", views.stripe_config, name="stripe_config"),
+    path("user_view_order", views.user_view_order, name="user_view_order"),
+    path("user_Conform_order", views.user_Conform_order, name="user_Conform_order"),
+    path("user_Cancel_order", views.user_Cancel_order, name="user_Cancel_order"),
+    path("user_return_order", views.user_return_order, name="user_return_order"),
+    path("user_view_return", views.user_view_return, name="user_view_return"),
+    path("user_view_product_clothe", views.user_view_product_clothe, name="user_view_product_clothe"),
+    # path("user_view_return", views.user_view_return, name="user_view_return"),
+    # path("user_view_return", views.user_view_return, name="user_view_return"),
+
+
+
 
 ]

@@ -5,9 +5,7 @@ from .models import *
 # Register your models here.
 class BuyerRegistrationadmin(admin.ModelAdmin):
     list_display = (
-        "user_id", "user_firstname", "user_lastname", "user_address", "user_mobile_no", "user_password",
-        "user_email_id",
-        "user_photo")
+        "user_id",  "user_address", "user_mobile_no", "user_photo","buyer")
 
 
 class BuyerAddressadmin(admin.ModelAdmin):
@@ -27,10 +25,15 @@ class BuyerPurchaseadmin(admin.ModelAdmin):
 class BuyerFeedbackadmin(admin.ModelAdmin):
     list_display = ("feedback_id", "feedback_description", "feedback_datetime", "feedback_rating","feedback_photo","feedback_product","feedback_login")
 
+class BuyerOrderadmin(admin.ModelAdmin):
+    list_display = ("order", "order_number", "customer_name", "product_name","order_date","amount","buyer")
+
+
 admin.site.register(BuyerRegistration, BuyerRegistrationadmin)
 admin.site.register(Checkout_details, BuyerAddressadmin)
 admin.site.register(BuyerCart, BuyerCartadmin)
 admin.site.register(BuyerPurchase, BuyerPurchaseadmin)
 admin.site.register(BuyerPayment)
 admin.site.register(BuyerFeedback, BuyerFeedbackadmin)
-# admin.site.register(Return)
+admin.site.register(BuyerOrder, BuyerOrderadmin)
+admin.site.register(Return)

@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
 from pathlib import Path
-
+from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'base',
     'rest_framework',
     'openpyxl',
+    'rest_framework_simplejwt',
 
 
 
@@ -152,3 +153,43 @@ STRIPE_SECRET_KEY = 'sk_test_51OU5FMSAvmPjZJjlUaHxMRIUgI3enoGyrOyvGh1LP5OOl7UuUD
 STRIPE_PUBLISHABLE_KEY = 'pk_test_51OU5FMSAvmPjZJjl0O62wWXTtLJhtIEqVQmchU5wEBgOATPaDg1t8Im8giY3Hu02eVbEREV6D32ujlRv1WbOs7tG00RcYtVqtM'
 
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=15),
+    'ROTATE_REFRESH_TOKEN': False,
+    'BLACK_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': "HS256",
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': "",
+    'AUDIENCE': None,
+    'JSON_ENCODER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+
+    'AUTH_HEADER_TYPES': ("Bearer",),
+    'AUTH_HEADER_NAME': "HTTP_AUTHORIZATION",
+    'USER_ID_FIELD': "id",
+    'USER_ID_CLAIM': "user_id",
+    'USER_AUTHENTICATION_RULE': "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+
+    'AUTH_TOKEN_CLASSES': ("rest_framework_simplejwt.tokens.AccessToken",),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_TYPE_CLASS': "rest_framework_simplejwt.models.TokenUser",
+
+    'JTI_CLAIM': 'jti',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': "refresh_exp",
+    'SLIDING_TOKEN_LIFETIME': timedelta(days=1),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=15),
+
+}

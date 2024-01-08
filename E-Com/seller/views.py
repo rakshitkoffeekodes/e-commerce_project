@@ -3,10 +3,7 @@ import datetime
 import random
 import openpyxl
 import xlsxwriter
-# <<<<<<< HEAD
-# from ..buyer.models import *
-# =======
-# >>>>>>> 02308f416bbc8ff3df9705587e24d18c63b13c3a
+
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.http import JsonResponse

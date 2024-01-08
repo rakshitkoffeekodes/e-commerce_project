@@ -1,14 +1,38 @@
 from django.db.models import fields
 from rest_framework import serializers
 from .models import *
+from django.contrib.auth.models import User
 import datetime
 
 
-class BuyerRegistrationSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email']
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    buyer = UserSerializer()
+
     class Meta:
         model = BuyerRegistration
-        fields = ("user_id", "user_firstname", "user_lastname", "user_address", "user_mobile_no", "user_password",
-                  "user_email_id", "user_photo")
+        fields = ['buyer', 'user_photo', 'user_mobile_no', 'user_id']
+        # fields = '__all__'
+
+
+# class UserSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = User
+#         fields = ['username', 'first_name', 'last_name', 'email']
+#
+#
+#
+# class RegisterSerializer(serializers.ModelSerializer):
+#     register_user = UserSerializer()
+#
+#     class Meta:
+#         model = BuyerRegistration
+#         fields = ['buyer', 'user_address', 'user_photo', 'user_mobile_no']
 
 
 class BuyerCartSerializer(serializers.ModelSerializer):
@@ -49,36 +73,13 @@ class BuyerPaymentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-def check_expiry_month(value):
-    if not 1 <= int(value) <= 12:
-        raise serializers.ValidationError("Invalid expiry month.")
+class BuyerOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BuyerOrder
+        fields = '__all__'
 
 
-def check_expiry_year(value):
-    today = datetime.datetime.now()
-    if not int(value) >= today.year:
-        raise serializers.ValidationError("Invalid expiry year.")
-
-
-def check_cvc(value):
-    if not 3 <= len(value) <= 4:
-        raise serializers.ValidationError("Invalid cvc number.")
-
-
-def check_payment_method(value):
-    payment_method = value.lower()
-    if payment_method not in ["card"]:
-        raise serializers.ValidationError("Invalid payment_method.")
-
-
-class PaymentSerializer(serializers.Serializer):
-    card_number = serializers.CharField(max_length=150, required=True)
-    expiry_month = serializers.CharField(max_length=150, required=True, validators=[check_expiry_month])
-    expiry_year = serializers.CharField(max_length=150, required=True, validators=[check_expiry_year])
-    cvc = serializers.CharField(max_length=150, required=True, validators=[check_cvc])
-#
-
-# class ReturnSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Return
-#         fields = '__all__'
+class ReturnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Return
+        fields = '__all__'

@@ -10,11 +10,16 @@ import stripe
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
 import uuid
-from django.conf import settings
-from django.shortcuts import render
-from django.http import HttpResponse
+from django.db.models import Max
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import *
+from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
-# Create your views here.
+
+
+
 @api_view(['POST'])
 def user_registration(request):
     user_firstname = request.POST["user_firstname"]
@@ -24,17 +29,21 @@ def user_registration(request):
     user_confirm_password = request.POST["user_confirm_password"]
 
     try:
-        if BuyerRegistration.objects.filter(user_email_id=user_email_id).exists():
-            return Response({"error": "Email is already registered"}, status=400)
+
+    # if User.objects.filter(user_email_id=user_email_id).exists():
+    #     return Response({"error": "Email is already registered"}, status=400)
 
         if user_password == user_confirm_password:
-            user = User.objects.create_user(username=user_email_id, password=user_password)
-            member = BuyerRegistration(user_firstname=user_firstname, user_lastname=user_lastname,
-                                       user_email_id=user_email_id, user_password=user_password)
+            print("yes")
+            user = User.objects.create_user(username=user_email_id.split('@')[0],
+                                            email=user_email_id,
+                                            password=user_password,
+                                            first_name=user_firstname,last_name=user_lastname)
             user.save()
+            member = BuyerRegistration(buyer=user)
             member.save()
-            serializer = BuyerRegistrationSerializer(member)
-            return Response(serializer.data)
+
+            return Response({"error": "You are successfully Registration in"}, status=200)
         else:
             return Response({"error": "Password and confirm_password do not match"}, status=400)
 
@@ -43,49 +52,82 @@ def user_registration(request):
 
 @api_view(['POST'])
 def user_login(request):
-    user_email_id = request.POST["user_email_id"]
-    user_password = request.POST["user_password"]
+    user_email_id = request.data.get("user_email_id")  # Use request.data for POST data
+    user_password = request.data.get("user_password")
 
     try:
-        request.session['user_email_id'] = user_email_id
-        member=BuyerRegistration.objects.get(user_email_id=user_email_id)
-        if member.user_password ==user_password:
-            return Response({"message": " user successfully login"}, status=200)
+        user = User.objects.get(email=user_email_id)
+        if user.check_password(user_password):
+            auth = authenticate(username=user.username, password=user_password)
+            if auth is not None:
+                refresh = RefreshToken.for_user(auth)
+                return Response(
+                    {'Message': 'You are successfully logged in', 'refresh': str(refresh),
+                     'access': str(refresh.access_token)},
+                    status=200)
+            else:
+                return Response({'Message': 'Invalid username or password.'}, status=400)
         else:
-            return Response({"message": " Invalid password"}, status=200)
+            return Response({"message": "Invalid password"}, status=400)
 
-    except BuyerRegistration.DoesNotExist:
-        return Response({"error": f"Invalid credentials {BuyerRegistration.__name__}"}, status=404)
+    except User.DoesNotExist:
+        return Response({"error": "Invalid user_email_id"}, status=404)
 
     except Exception as e:
-        return Response({"error": e.__str__()}, status=404)
+        return Response({"error": str(e)}, status=500)
 
 
+
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_profile(request):
-
     try:
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(buyer=user)
 
-        if buyer_user!="":
-            path = request.META['HTTP_HOST']
+            # path = request.META['HTTP_HOST']
+            # path1 = 'http://' + path + '/media/' + str(buyer_user.user_photo)
+            # buyer_user.user_photo = path1
 
-            path1 = 'http://' + path + '/media/' + str(buyer_user.user_photo)
-            buyer_user.user_photo = path1
+            serializer = RegisterSerializer(buyer_user)
+            print(serializer)
 
-            serializer = BuyerRegistrationSerializer(buyer_user)
-            return Response({"message": " user profile successfully view.", "data": serializer.data}, status=200)
+            return Response({"message": "User profile retrieved successfully.", "data": serializer.data}, status=200)
         else:
-            return Response({"message": " user is not active"}, status=400)
+            return Response({"message": "User is not authenticated."}, status=401)
 
-
-    except BuyerRegistration.DoesNotExist:
-        return Response({"error": f"Error in view user profile : {BuyerRegistration.__name__}"}, status=404)
+    except User.DoesNotExist:
+        return Response({"error": "User matching query does not exist."}, status=404)
 
     except Exception as e:
-        return Response({"error": e.__str__()}, status=404)
+        return Response({"error": str(e)}, status=500)
+    # try:
+    # user = request.user
+    # print(user)
+    # if user.is_authenticated:
+    #     # buyer_user = BuyerRegistration.objects.get(user_id=user.id)
+    #     buyer_user = User.objects.get(email=user.id)
+    #     print(buyer_user)
+    #
+    #     path = request.META['HTTP_HOST']
+    #
+    #     path1 = 'http://' + path + '/media/' + str(buyer_user.user_photo)
+    #     buyer_user.user_photo = path1
+    #
+    #     serializer = RegisterSerializer(buyer_user)
+    #     return Response({"message": " user profile successfully view.", "data": serializer.data}, status=200)
+    # else:
+    #     return Response({"message": " user is not active"}, status=400)
 
+    # except BuyerRegistration.DoesNotExist:
+    #     return Response("BuyerRegistration not found for the user.", status=404)
+    # except Exception as e:
+    #     return Response({"error": e.__str__()}, status=404)
 
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_update(request):
     user_firstname = request.POST.get("user_firstname", "")
@@ -101,29 +143,35 @@ def user_update(request):
         if BuyerRegistration.objects.filter(user_mobile_no=user_mobile_no).exists():
             return Response({"error": "Mobile number is already registered"}, status=400)
 
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_id=user.id)
 
-        if user_firstname:
-            buyer_user.user_firstname = user_firstname
-        if user_lastname:
-            buyer_user.user_lastname = user_lastname
-        if user_mobile_no:
-            buyer_user.user_mobile_no = user_mobile_no
-        if user_address:
-            buyer_user.user_address = user_address
-        if user_photo:
-            buyer_user.user_photo = user_photo
+            if user_firstname:
+                buyer_user.user_firstname = user_firstname
+            if user_lastname:
+                buyer_user.user_lastname = user_lastname
+            if user_mobile_no:
+                buyer_user.user_mobile_no = user_mobile_no
+            if user_address:
+                buyer_user.user_address = user_address
+            if user_photo:
+                buyer_user.user_photo = user_photo
 
-        buyer_user.save()
-        serializer = BuyerRegistrationSerializer(buyer_user)
-        return Response({"message": "User profile successfully updated.", "data": serializer.data}, status=200)
+            buyer_user.save()
+            serializer = BuyerRegistrationSerializer(buyer_user)
+            return Response({"message": "User profile successfully updated.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
 
     except BuyerRegistration.DoesNotExist:
         return Response({"error": f"Error in user profile update: {BuyerRegistration.__name__}"}, status=404)
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([ AllowAny])
 @api_view(['POST'])
 def user_search_product(request):
     search = request.POST["search"]
@@ -151,9 +199,13 @@ def user_search_product(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
+
+@authentication_classes([JWTAuthentication])
+@permission_classes([AllowAny])
 @api_view(['POST'])
 def user_view_product(request):
     try:
+
         buyer_user = Product.objects.all()
         if len(buyer_user)!=0:
             serializer = ProductSerializer(buyer_user, many=True)
@@ -164,7 +216,8 @@ def user_view_product(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_insert_address(request):
     street_address = request.POST["street_address"]
@@ -181,32 +234,45 @@ def user_insert_address(request):
 
         if not (ord_rec_mobile_no.isdigit() and len(ord_rec_mobile_no) == 10):
             return Response({"error": "Invalid mobile number. Please provide a 10-digit number."}, status=400)
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_id=user.id)
+            member = Checkout_details(street_address=street_address, apartment_address=apartment_address,
+                                      pincode=pincode, city=city, ord_rec_mobile_no=ord_rec_mobile_no,
+                                      select_state=select_state, ord_rec_name=ord_rec_name,buyer=buyer_user)
+            member.save()
+            serializer = BuyerAddressSerializer(member)
+            return Response({"message": " user  address successfully insert.", "data": serializer.data}, status=200)
+
+        else:
+            return Response({"message": " user is not active"}, status=400)
 
 
-        member = Checkout_details(street_address=street_address, apartment_address=apartment_address,
-                                  pincode=pincode, city=city, ord_rec_mobile_no=ord_rec_mobile_no,
-                                  select_state=select_state, ord_rec_name=ord_rec_name)
-        member.save()
-        serializer = BuyerAddressSerializer(member)
-        return Response({"message": " user  address successfully insert.", "data": serializer.data}, status=200)
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_view_address(request):
     try:
-        member = Checkout_details.objects.all()
-        if member !="":
-            serializer = BuyerAddressSerializer(member, many=True)
-            return Response({"message": " user  address successfully view.", "data": serializer.data}, status=200)
+        user = request.user
+        if user.is_authenticated:
+            member = Checkout_details.objects.filter(buyer=user.id)
+            if member !="":
+                serializer = BuyerAddressSerializer(member, many=True)
+                return Response({"message": " user  address successfully view.", "data": serializer.data}, status=200)
+            else:
+                return Response({"message": " address is empty ."}, status=400)
         else:
-            return Response({"message": " address is empty ."}, status=400)
+            return Response({"message": " user is not active"}, status=400)
+
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_update_address(request):
     address = request.POST["address"]
@@ -217,37 +283,41 @@ def user_update_address(request):
     select_state = request.POST.get("select_state")
     ord_rec_name = request.POST.get("ord_rec_name")
     ord_rec_mobile_no = request.POST.get("ord_rec_mobile_no")
-    print(len(address))
+
 
     try:
-        member = Checkout_details.objects.all()
-        if (len(address) == 0) or len(address)>=len(member) :
-            return Response({"error": "Invalid address id. Please select valid address id."}, status=400)
+        max_accept_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        if not 1 <= int(address) <= max_accept_id:
+            return Response(f"Invalid address. Please provide a valid ID less than or equal to {max_accept_id}.")
 
         if not (pincode.isdigit() and len(pincode) == 6):
             return Response({"error": "Invalid pincode number. Please provide a 6-digit number."}, status=400)
 
         if not (ord_rec_mobile_no.isdigit() and len(ord_rec_mobile_no) == 10):
             return Response({"error": "Invalid mobile number. Please provide a 10-digit number."}, status=400)
+        user = request.user
+        if user.is_authenticated:
+            member = Checkout_details.objects.get(address=address,buyer=user.id)
+            if not street_address == '':
+                member.street_address = street_address
+            if not apartment_address == '':
+                member.apartment_address = apartment_address
+            if not pincode == '':
+                member.pincode = pincode
+            if not city == '':
+                member.city = city
+            if not select_state == '':
+                member.select_state = select_state
+            if not ord_rec_name == '':
+                member.ord_rec_name = ord_rec_name
+            if not ord_rec_mobile_no == '':
+                member.ord_rec_mobile_no = ord_rec_mobile_no
+            member.save()
+            serializer = BuyerAddressSerializer(member)
+            return Response({"message": " user  address successfully update.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
 
-        member = Checkout_details.objects.get(address=address)
-        if not street_address == '':
-            member.street_address = street_address
-        if not apartment_address == '':
-            member.apartment_address = apartment_address
-        if not pincode == '':
-            member.pincode = pincode
-        if not city == '':
-            member.city = city
-        if not select_state == '':
-            member.select_state = select_state
-        if not ord_rec_name == '':
-            member.ord_rec_name = ord_rec_name
-        if not ord_rec_mobile_no == '':
-            member.ord_rec_mobile_no = ord_rec_mobile_no
-        member.save()
-        serializer = BuyerAddressSerializer(member)
-        return Response({"message": " user  address successfully update.", "data": serializer.data}, status=200)
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
@@ -256,41 +326,65 @@ def user_update_address(request):
         return Response({"error": f"Error in address profile update: {Checkout_details.__name__}"}, status=404)
 
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_delete_address(request):
-    address_id = request.POST["address_id"]
-    print(type(address_id))
     try:
-        member = Checkout_details.objects.all()
-        if (len(address_id) == 0) or len(address_id) >= len(member) :
-            return Response({"error": "Invalid address id. Please select valid address id."}, status=400)
+        address_id = request.POST["address_id"]
 
-        member = Checkout_details.objects.get(address_id=address_id)
-        member.delete()
-        return Response({"message": " user profile successfully deleted."}, status=200)
+        if not address_id or not address_id.isdigit():
+            return Response({"error": "Invalid or missing address_id. Please provide a valid ID."}, status=400)
+
+        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+
+        if not 1 <=int(address_id) <= max_address_id:
+            return Response(f"Invalid address_id. Please provide a valid ID less than or equal to {max_address_id}.",status=400)
+
+        user = request.user
+        if user.is_authenticated:
+            member = Checkout_details.objects.get(address=address_id, buyer=user.id)
+            member.delete()
+
+            return Response({"message": "User profile successfully deleted."}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+
     except Checkout_details.DoesNotExist:
-        return Response({"error": f"Error in  user profile updated: {Checkout_details.__name__}"}, status=404)
+        return Response({"error": f"Error: User profile not found with address_id {address_id}"}, status=404)
+
     except Exception as e:
-        return Response({"error": e.__str__()}, status=404)
+        return Response({"error": f"Error: {e}"}, status=500)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_insert_cart(request):
     product_color = request.POST['product_color']
     product_size = request.POST['product_size']
     product = request.POST['product']
     try:
+        max_accept_id = Product.objects.aggregate(Max('id'))['id__max']
+        if not 1 <= int(product) <= max_accept_id:
+            return Response(f"Invalid product. Please provide a valid ID less than or equal to {max_accept_id}.")
+
         product_value = Product.objects.get(id=product)
-        if not product_value=="":
+        if  product_value=="":
             return Response({"error": "Product is empty ."}, status=400)
 
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        member = BuyerCart(qty=1, product_color=product_color, product_size=product_size, total=product_value.product_price,
-                           buyer=buyer_user, product=product_value)
-        member.save()
-        serializer = BuyerCartSerializer(member)
-        return Response({"message": " user cart successfully insert .", "data": serializer.data}, status=200)
+        user = request.user
+        if user.is_authenticated:
+
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            member = BuyerCart(qty=1, product_color=product_color, product_size=product_size, total=product_value.product_price,
+                               buyer=buyer_user, product=product_value)
+            member.save()
+            serializer = BuyerCartSerializer(member)
+            return Response({"message": " user cart successfully insert .", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
@@ -298,23 +392,33 @@ def user_insert_cart(request):
     except Product.DoesNotExist:
         return Response({"error": f"Error in  cart  insert: {Product.__name__}"}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_view_cart(request):
 
-
     try:
-        member = BuyerCart.objects.all()
-        if member != "":
-            serializer = BuyerCartSerializer(member, many=True)
-            return Response({"message": " user cart successfully view .", "data": serializer.data}, status=200)
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            member = BuyerCart.objects.filter(buyer=buyer_user)
+            if member != "":
+                serializer = BuyerCartSerializer(member, many=True)
+                return Response({"message": " user cart successfully view .", "data": serializer.data}, status=200)
+            else:
+                return Response({"message": " address is empty ."}, status=400)
         else:
-            return Response({"message": " address is empty ."}, status=400)
+            return Response({"message": " user is not active"}, status=400)
+
+    except BuyerRegistration.DoesNotExist:
+        return Response({"error": f"Error in  cart  insert: {Product.__name__}"}, status=404)
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
 
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_update_cart(request):
     cart = request.POST['cart']
@@ -324,45 +428,57 @@ def user_update_cart(request):
 
     try:
 
-        member = Checkout_details.objects.all()
         if not 1 <= int(qty) <= 100 and (qty.isdigit()):
             return Response({"message": "Invalid qty number. Qty should be between 1 and 100."}, status=400)
 
-        if (len(cart) == 0) or (len(cart)<=len(member)) :
-            return Response({"error": "Invalid cart id. Please select valid cart id."}, status=400)
+        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        if not 1 <= int(cart) <= max_address_id:
+            return Response(f"Invalid cart. Please provide a valid ID less than or equal to {max_address_id}.", status=400)
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            member = BuyerCart.objects.get(pk=cart,buyer=buyer_user)
 
-        member = BuyerCart.objects.get(pk=cart)
-        total = int(qty) * member.total
+            total = int(qty) * member.total
 
-        if not member=="":
-            if not qty == '':
-                member.qty = qty
-            if not product_color == '':
-                member.product_color = product_color
-            if not product_size == '':
-                member.product_size = product_size
-            if not total == '':
-                member.total = total
-            member.save()
-            serializer = BuyerCartSerializer(member)
-            return Response({"message": " user cart successfully update.", "data": serializer.data}, status=200)
+            if not member=="":
+                if not qty == '':
+                    member.qty = qty
+                if not product_color == '':
+                    member.product_color = product_color
+                if not product_size == '':
+                    member.product_size = product_size
+                if not total == '':
+                    member.total = total
+                member.save()
+                serializer = BuyerCartSerializer(member)
+                return Response({"message": " user cart successfully update.", "data": serializer.data}, status=200)
+            else:
+                return Response({"message": " cart is empty ."}, status=400)
         else:
-            return Response({"message": " cart is empty ."}, status=400)
+            return Response({"message": " user is not active"}, status=400)
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_delete_cart(request):
     cart = request.POST['cart']
     try:
-        member = Checkout_details.objects.all()
-        if (len(cart) == 0) or (len(cart)<=len(member)):
-            return Response({"error": "Invalid cart id. Please select valid cart id."}, status=400)
 
-        member = BuyerCart.objects.get(id=cart)
-        member.delete()
-        return Response({"message": " user cart successfully deleted."}, status=200)
+        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        if not 1 <= int(cart) <= max_address_id:
+            return Response(f"Invalid cart. Please provide a valid ID less than or equal to {max_address_id}.",status=400)
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+
+            member = BuyerCart.objects.get(pk=cart,buyer=buyer_user)
+            member.delete()
+            return Response({"message": " user cart successfully deleted."}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
 
     except Checkout_details.DoesNotExist:
         return Response({"error": f"user Invalid id select {Checkout_details.__name__}"}, status=404)
@@ -370,80 +486,232 @@ def user_delete_cart(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def user_insert_buynow(request):
     qty = request.POST['qty']
-    product = request.POST['product']
-    Checkout = request.POST['Checkout']
+    product_id = request.POST['product']
+    Checkout_id = request.POST['Checkout']
     try:
-        product_value = Product.objects.all()
-        chekout_value = Checkout_details.objects.all()
 
-        if not 1 <= int(qty) <= 100 and (qty.isdigit()):
-            return Response({"message": "Invalid qty number. Qty should be between 1 and 100."}, status=400)
+        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        max_product_id = Product.objects.aggregate(Max('id'))['id__max']
 
-        if (len(product) == 0) or len(product)>=len(product_value) :
-            return Response({"error": "Invalid product id. Please select valid product id."}, status=400)
+        if not 1 <= int(qty) <= 100 or not qty.isdigit():
+            return Response({"error": "Invalid qty number. Qty should be between 1 and 100."}, status=400)
 
-        if (len(Checkout) == 0) or len(Checkout)>=len(chekout_value) :
-            return Response({"error": "Invalid chekout id. Please select valid chekout id."}, status=400)
+        if not 1 <= int(product_id) <= max_product_id:
+            return Response(f"Invalid product. Please provide a valid ID less than or equal to {max_product_id}.",
+                            status=400)
 
+        if not 1 <= int(Checkout_id) <= max_address_id:
+            return Response(f"Invalid Checkout. Please provide a valid ID less than or equal to {max_address_id}.",
+                            status=400)
 
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        product_data = Product.objects.get(id=product)
-        checkout_data = Checkout_details.objects.get(address=Checkout)
+        # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+        product_data = Product.objects.get(id=product_id)
+        checkout_data = Checkout_details.objects.get(address=Checkout_id)
         total = int(qty) * product_data.product_price
 
-        if not product_data=="" and checkout_data=="":
-            member = BuyerPurchase(qty=qty, total=total,
-                                   buyer=buyer_user, product=product_data, checkout=checkout_data)
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
 
+            member = BuyerPurchase(qty=qty, total=total, buyer=buyer_user, product=product_data, checkout=checkout_data)
+            member.save()
+
+            serializer = BuyercartPurchaseSerializer(member)
+            return Response({"message": "User buy the product successfully.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+    except BuyerRegistration.DoesNotExist:
+        return Response({"error": "Buyer not found."}, status=404)
+
+    except Product.DoesNotExist:
+        return Response({"error": "Product not found."}, status=404)
+
+    except Checkout_details.DoesNotExist:
+        return Response({"error": "Checkout details not found."}, status=404)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def user_insert_cart_buynow(request):
+    cart_id = request.POST['cart']
+    checkout_address = request.POST['Checkout']
+
+    try:
+
+        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        max_card_id = BuyerCart.objects.aggregate(Max('id'))['id__max']
+
+        if not 1 <= int(cart_id) <= max_card_id:
+            return Response(f"Invalid card. Please provide a valid ID less than or equal to {max_card_id}.",
+                            status=400)
+
+        if not 1 <= int(checkout_address) <= max_address_id:
+            return Response(f"Invalid Checkout. Please provide a valid ID less than or equal to {max_address_id}.",
+                            status=400)
+
+        # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+        cart = BuyerCart.objects.get(id=cart_id)
+        checkout = Checkout_details.objects.get(address=checkout_address)
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+
+            member = BuyerPurchase(
+                qty=cart.qty, total=cart.total, buyer=buyer_user,
+                product=cart.product, cart=cart, checkout=checkout
+            )
             member.save()
             serializer = BuyercartPurchaseSerializer(member)
-            return Response({"message": " user buy Product successfully .", "data": serializer.data}, status=200)
+            return Response({"message": " user cart to buy  Product successfully .", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+
+    except Exception as e:
+        return Response({"error": e.__str__()}, status=404)
+
+
+
+stripe.api_key = 'sk_test_51OU5FMSAvmPjZJjlUaHxMRIUgI3enoGyrOyvGh1LP5OOl7UuUDZxkJemUPCCi6hWVZ2yWyxU7ADIe7tsN5wVdHVN00D0dS4gP0'
+
+
+@csrf_exempt
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def create_payment_intent(request):
+    purchase_data = request.POST.get('purchase_data')
+    try:
+
+        max_purchase_id = BuyerPurchase.objects.aggregate(Max('id'))['id__max']
+        if not purchase_data.isdigit() or not 1 <= int(purchase_data) <= max_purchase_id:
+            return Response({"error": f"Invalid purchase_data. Please provide a valid ID less than or equal to {max_purchase_id}."},status=400)
+
+        unique_id = str(uuid.uuid4().int)[:9]
+        order_id = "ORD" + unique_id
+        # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session.get('user_email_id'))
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            details = BuyerPurchase.objects.get(id=purchase_data)
+            intent = stripe.PaymentIntent.create(
+                amount=details.total,
+                currency='inr',
+            )
+
+            payment = BuyerPayment.objects.create(
+                amount=details.total,
+                currency='INR',
+                status='Success',
+                payment_intent_id=intent.id,
+                details=details,
+                buyer=buyer_user,
+                order=order_id
+            )
+
+
+            serializer = BuyerPaymentSerializer(payment)
+            return Response({"message": "User payment successfully.", "data": serializer.data}, status=200)
+
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+
+    except BuyerPurchase.DoesNotExist:
+        print("Invalid purchase id. Please select a valid purchase id.")
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=404)
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def user_Conform_order(request):
+    try:
+        # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            accept = Accept.objects.filter(buyer=buyer_user).latest('id')
+
+            if not accept=="":
+                return  Response({"message": "  Conform Order successfully ."}, status=200)
+            else:
+                return Response({"message": "Cancel  your Order "}, status=200)
+
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+    except Exception as e:
+        return Response({"error": e.__str__()}, status=404)
+
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def user_insert_feedback(request):
+    feedback_description = request.POST['feedback_description']
+    feedback_rating = request.POST['feedback_rating']
+    feedback_photo = request.FILES['feedback_photo']
+    feedback_product = request.POST['feedback_product']
+    try:
+
+        max_accept_id = Product.objects.aggregate(Max('id'))['id__max']
+        if not 1 <= int(feedback_product) <= max_accept_id:
+            return Response(f"Invalid product. Please provide a valid ID less than or equal to {max_accept_id}.")
+
+        # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            product_data = Product.objects.get(id=feedback_product)
+            if not product_data =="":
+                member = BuyerFeedback(
+                    feedback_description=feedback_description,
+                    feedback_rating=feedback_rating,
+                    feedback_photo=feedback_photo,
+                    feedback_product=product_data,
+                    feedback_login=buyer_user,
+                )
+                print(member)
+                member.save()
+                serializer = BuyerFeedbackSerializer(member)
+                return Response({"message": " user feedback successfully insert .", "data": serializer.data}, status=200)
+            else:
+                return Response({"message": " product is empty ."}, status=400)
+
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+    except Exception as e:
+        return Response({"error": e.__str__()}, status=404)
+
+@authentication_classes([JWTAuthentication])
+@permission_classes([AllowAny])
+@api_view(['POST'])
+def user_view_feedback(request):
+    try:
+
+        member = BuyerFeedback.objects.all()
+        if not member=="":
+            serializer = BuyerFeedbackSerializer(member, many=True)
+            return Response({"message": " user feedback successfully view .", "data": serializer.data}, status=200)
         else:
             return Response({"message": " product is empty ."}, status=400)
 
-
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
 
-@api_view(['POST'])
-def user_insert_cart_buynow(request):
-    cart_id = request.POST.get('cart')
-    checkout_address = request.POST.get('Checkout')
-
-    try:
-        cart_value = BuyerCart.objects.all()
-        checkout_value = Checkout_details.objects.all()
-
-        # Validate cart_id
-        if not cart_id or not cart_id.isdigit() or int(cart_id) < 1:
-            return Response({"error": "Invalid cart id. Please select a valid cart id."}, status=400)
-
-        # Validate checkout_address
-        if not checkout_address or len(checkout_address) >= len(checkout_value):
-            return Response({"error": "Invalid checkout address. Please select a valid checkout address."}, status=400)
-
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        cart = BuyerCart.objects.get(id=cart_id)
-        checkout = Checkout_details.objects.get(address=checkout_address)
-
-        member = BuyerPurchase(
-            qty=cart.qty, total=cart.total, buyer=buyer_user,
-            product=cart.product, cart=cart, checkout=checkout
-        )
-        member.save()
-        print(member.cart, member.product)
-        serializer = BuyercartPurchaseSerializer(member)
-        return Response({"message": " user cart to buy  Product successfully .", "data": serializer.data}, status=200)
-
-    except Exception as e:
-        return Response({"error": e.__str__()}, status=404)
-
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([AllowAny])
 @api_view(['POST'])
 def user_filter_product(request):
     product_size = request.POST.get('product_size', "")
@@ -462,6 +730,8 @@ def user_filter_product(request):
                 product_branding=product_branding,
                 product_price__range=(min_product_price, max_product_price),
                 buyerfeedback__feedback_rating=max_product_rating).distinct()
+            if products=="":
+                return Response({"message": " product is empty ."}, status=400)
 
         elif product_size != '':
             products = Product.objects.filter(product_size=product_size)
@@ -481,139 +751,128 @@ def user_filter_product(request):
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
-def user_insert_feedback(request):
-    feedback_description = request.POST['feedback_description']
-    feedback_rating = request.POST['feedback_rating']
-    feedback_photo = request.FILES['feedback_photo']
-    feedback_product = request.POST['feedback_product']
+def user_view_order(request):
     try:
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            accept = Accept.objects.filter(buyer=buyer_user)
+            if not accept=="":
+                serializer = AcceptSerializer(accept,many=True)
+                return Response({"message": "User payment successfully.", "data": serializer.data}, status=200)
 
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        p = Product.objects.get(id=feedback_product)
-        member = BuyerFeedback(
-            feedback_description=feedback_description,
-            feedback_rating=feedback_rating,
-            feedback_photo=feedback_photo,
-            feedback_product=p,
-            feedback_login=buyer_user,
-        )
-        print(member)
-        member.save()
-        serializer = BuyerFeedbackSerializer(member)
-        return Response({"message": " user feedback successfully insert .", "data": serializer.data}, status=200)
+            else:
+                return Response({"message": " order is empty ."}, status=400)
+        else:
+            return Response({"message": " user is not active"}, status=400)
 
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
-
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
-def user_view_feedback(request):
-    member = BuyerFeedback.objects.all()
-
+def user_Cancel_order(request):
+    order_id = request.POST['order_id']
     try:
-        serializer = BuyerFeedbackSerializer(member, many=True)
-        return Response({"message": " user feedback successfully view .", "data": serializer.data}, status=200)
+        accept = BuyerPayment.objects.get(order=order_id)
+        accept.cancel=False
+        accept.save()
+
+        serializer = BuyerPaymentSerializer(accept)
+        return Response({"message": "User payment successfully.", "data": serializer.data}, status=200)
+
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
 
-stripe.api_key = 'sk_test_51OU5FMSAvmPjZJjlUaHxMRIUgI3enoGyrOyvGh1LP5OOl7UuUDZxkJemUPCCi6hWVZ2yWyxU7ADIe7tsN5wVdHVN00D0dS4gP0'
-
-
-@csrf_exempt
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
-def create_payment_intent(request):
-    p = request.POST.get('p')
+def user_return_order(request):
+    accept_id = request.POST['accept_id']
+    order_return_message = request.POST['order_return_message']
     try:
-        unique_id = str(uuid.uuid4().int)[:12]
-        order_id = "ORD" + unique_id
-        print(order_id)
-        buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
-        details=BuyerPurchase.objects.get(id=p)
-        amount = int(request.POST.get('amount'))
-        intent = stripe.PaymentIntent.create(
-            amount=amount,
-            currency='inr',
-        )
+        max_accept_id = Accept.objects.aggregate(Max('id'))['id__max']
+        print(max_accept_id)
+        if not 1 <= int(accept_id) <= max_accept_id:
+            return Response(f"Invalid accept_id. Please provide a valid ID less than or equal to {max_accept_id}.")
 
-        payment = BuyerPayment.objects.create(
-            amount=amount,
-            currency='INR',
-            status='Success',
-            payment_intent_id=intent.id,
-            details=details,
-            buyer=buyer_user,
-            order=order_id
+        unique_id = str(uuid.uuid4().int)[:9]
+        order_id = "RET" + unique_id
 
-        )
-        serializer = BuyerPaymentSerializer(payment)
-        return Response({"message": " user payment successfully .", "data": serializer.data}, status=200)
+        # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
+
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            accept_instance = Accept.objects.get(id=accept_id, buyer=buyer_user)
+            buyer_payment_instance = BuyerPayment.objects.get(order=accept_instance.order)
+
+
+            if not accept_instance=="" or buyer_payment_instance=="":
+                return_instance = Return(
+                    buyer=buyer_user,
+                    order=buyer_payment_instance,
+                    returns=order_id,
+                    order_return_message=order_return_message,
+                    return_shipping_Fee=100,  # Adjust the value as needed
+                    return_date=datetime.now(),
+                    status=True
+                )
+                return_instance.save()
+
+                serializer = ReturnSerializer(return_instance)
+                return Response({"message": "User return successfully.", "data": serializer.data}, status=200)
+
+            else:
+                return Response({"message":  " data   is empty ."}, status=200)
+
+        else:
+            return Response({"message": " user is not active"}, status=400)
+
+    except Exception as e:
+        return Response({"error": e.__str__()}, status=404)
+
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def user_view_return(request):
+    try:
+        user = request.user
+        if user.is_authenticated:
+            buyer_user = BuyerRegistration.objects.get(user_email_id=user)
+            member = Return.objects.filter(buyer=buyer_user)
+            print(member)
+            if not member=="":
+                serializer = ReturnSerializer(member,many=True)
+                return Response({"message": " user Return successfully view .", "data": serializer.data}, status=200)
+            else:
+                return Response({"message": " Return is empty ."}, status=400)
+        else:
+            return Response({"message": " user is not active"}, status=400)
 
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
 
+@authentication_classes([JWTAuthentication])
+@permission_classes([AllowAny])
 @api_view(['POST'])
-def stripe_config(request):
-    stripe_config = {'publicKey': settings.STRIPE_PUBLISHABLE_KEY}
-    return Response(stripe_config)
+def user_view_product_clothe(request):
+    try:
+        buyer_user = Product.objects.filter(product_category="ELECTRONICS",product_sub_category="HOME AUDIO")
 
-@csrf_exempt
-@api_view(['POST'])
-def payment_intent(request):
-    domain_url = 'http://127.0.0.1:8000'
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    success_url = 'https://example.com/success/'
-    cancel_url = 'https://example.com/cancel/'
-    # try:
-    # checkout_session = stripe.checkout.Session.create(
-    #     success_url=domain_url + success_url,
-    #     cancel_url=domain_url + cancel_url,
-    #     payment_method_types=['card'],
-    #     mode='payment',
-    #     line_items=[
-    #         {
-    #             'name': 'T-shirt',
-    #             'quantity': 1,
-    #             'currency': 'usd',
-    #             'amount': '2000',
-    #         }
-    #     ]
-    # )
-    checkout_session = stripe.checkout.Session.create(
-        success_url=domain_url + success_url,
-        cancel_url=domain_url + cancel_url,
-        payment_method_types=['card'],
-        mode='payment',
-        line_items=[
-            {
-                'name': 'T-shirt',
-                'quantity': 1,
-                'currency': 'usd',
-                'amount': '2000',
-            }
-        ]
-    )
-    print("Checkout Session:", checkout_session)
-    return Response({'sessionId': checkout_session['id']})
-    # return Response({'sessionId': checkout_session['id']})
-    # except Exception as e:
-    #     return Response({'error': str(e)})
+        if not buyer_user=="":
 
-# def payment_intent(request):
-#     # ... (existing code)
-#
-#
-#
-#     print(f"Success URL: {success_url}")
-#     print(f"Cancel URL: {cancel_url}")
-#
-#     checkout_session = stripe.checkout.Session.create(
-#         success_url=success_url,
-#         cancel_url=cancel_url,
-#         # other parameters...
-#     )
-#     # ... (remaining code)
+            serializer = ProductSerializer(buyer_user, many=True)
+            return Response({"message": " user view product successfully.", "data": serializer.data}, status=200)
+        else:
+            return Response({"message": " product is empty ."}, status=400)
+
+    except Exception as e:
+        return Response({"error": e.__str__()}, status=404)
