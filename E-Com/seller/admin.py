@@ -5,12 +5,12 @@ from .models import *
 # Register your models here.
 
 class register(admin.ModelAdmin):
-    list_display = ('id', 'first_name', 'last_name', 'username', 'email', 'password', 'mobile_no', 'address')
+    list_display = ('id', 'register_user', 'mobile_no', 'address')
 
 
 class product(admin.ModelAdmin):
     list_display = (
-        'id', 'SKU', 'product_name', 'product_price', 'product_sale_price', 'product_quantity', 'product_category',
+        'id', 'product_SKU', 'product_name', 'product_price', 'product_sale_price', 'product_quantity', 'product_category',
         'product_sub_category', 'product_branding', 'product_tags', 'product_size', 'product_color', 'product_fabric',
         'product_seller')
 

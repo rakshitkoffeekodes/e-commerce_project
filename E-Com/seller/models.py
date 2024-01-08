@@ -1,19 +1,17 @@
+from django.contrib.auth.models import User
+
 from base.models import *
 from django.db import models
 
 
 class Register(models.Model):
+    register_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     profile_picture = models.FileField(upload_to="media/", default="default.jpg")
-    username = models.CharField(max_length=20, unique=True, null=True)
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
     mobile_no = models.CharField(unique=True, max_length=10, default='+ 91')
     address = models.TextField()
-    password = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.first_name + " " + self.last_name
+        return str(self.register_user)
 
 
 class Product(models.Model):
@@ -48,7 +46,7 @@ class Product(models.Model):
                     ('WATER PUMPS', 'WATER PUMPS'), ('GARDEN SPRAY', 'GARDEN SPRAY')))
     ]
     product_images = models.JSONField()
-    SKU = models.CharField(max_length=50)
+    product_SKU = models.CharField(max_length=50)
     product_name = models.CharField(max_length=100)
     product_price = models.IntegerField(blank=False)
     product_sale_price = models.IntegerField(blank=False)
