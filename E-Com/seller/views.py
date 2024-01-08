@@ -22,8 +22,8 @@ from base.serlializers import *
 
 # Create your views here.
 
-def generate_otp(OTP_LENGTH, first_name, last_name, email):
-    otp = random.randint(10 ** (OTP_LENGTH - 1), (10 ** OTP_LENGTH) - 1)
+def generate_otp(first_name, last_name, email):
+    otp = random.randint(000000, 999999)
     subject = 'One Time Password (OTP) Confirmation'
     message = f'''Hi {first_name} {last_name},
                             This email confirms your one-time password (OTP) for E-Commerce Site.
@@ -56,8 +56,7 @@ def register(request):
         if password != confirm_password:
             return JsonResponse({'Message': 'Passwords do not match.'}, status=400)
         global user_otp, temp
-        OTP_LENGTH = 6
-        user_otp = generate_otp(OTP_LENGTH, first_name, last_name, email)
+        user_otp = generate_otp(first_name, last_name, email)
         temp = {
             "first_name": first_name,
             "last_name": last_name,
@@ -109,25 +108,16 @@ def login(request):
             auth = authenticate(username=user.username, password=password)
             if auth is not None:
                 refresh = RefreshToken.for_user(user)
-                request.session['email'] = email
                 return JsonResponse(
-                    {'Message': 'Login Successfully.', 'refresh': str(refresh), 'access': str(refresh.access_token)},
+                    {'Message': 'You are successfully logged in', 'refresh': str(refresh),
+                     'access': str(refresh.access_token)},
                     status=200)
             else:
                 return JsonResponse({'Message': 'User credentials were not provided.'}, status=400)
         else:
-            return JsonResponse({'Message': 'Password incorrect.'}, status=400)
+            return JsonResponse({'Message': 'Please enter the correct password'}, status=400)
     except Register.DoesNotExist:
-        return JsonResponse({'Message': 'Email not found.'}, status=400)
-    except Exception as e:
-        return JsonResponse({'Message': e.__str__()}, status=400)
-
-
-@api_view(['GET'])
-def logout(request):
-    try:
-        del request.session['email']
-        return JsonResponse({'Message': 'Logout Successfully.'}, status=200)
+        return JsonResponse({'Message': 'Please enter the correct email'}, status=400)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
@@ -137,15 +127,16 @@ def logout(request):
 @permission_classes([IsAuthenticated])
 def profile(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             path = request.META['HTTP_HOST']
             path1 = 'http://' + path + '/media/' + str(seller_user.profile_picture)
             serial = RegisterSerializer(seller_user)
             return JsonResponse(
                 {'Message': 'Profile', 'Profile': serial.data, 'Profile Image': path1}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Profile': None, 'Profile Image': None}, status=400)
 
@@ -160,8 +151,9 @@ def update_profile(request):
     mobile_no = request.POST.get('mobile_no', '')
     address = request.POST.get('address', '')
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             if not len(mobile_no) == 10 or not mobile_no.isdigit():
                 return JsonResponse({'Message': 'Invalid Mobile Number.'})
             if not profile_picture == '':
@@ -177,7 +169,7 @@ def update_profile(request):
             seller_user.save()
             return JsonResponse({'Message': 'Profile Update Successfully.'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
@@ -202,8 +194,9 @@ def add_product(request):
     product_description = request.POST['product_description']
 
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             product_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
             id1 = random.choices(product_id, k=9)
             product = "".join(id1)
@@ -232,9 +225,9 @@ def add_product(request):
                 product_seller=seller_user,
             )
             product_add.save()
-            return JsonResponse({'message': 'Product Add Successfully.'}, status=200)
+            return JsonResponse({'message': 'Your Product Added successfully.'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
@@ -247,8 +240,9 @@ def bulk_upload_catalog(request):
     product_sub_category = request.POST['product_sub_category'].upper()
     product_image = request.FILES.getlist('product_image')
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             name = random.randint(00000, 99999)
             workbook = xlsxwriter.Workbook(f'D:\\Task\\E-Com\\media\\file\\Bulk-Catalog-{name}.xlsx')
             worksheet = workbook.add_worksheet('Catalog Data')
@@ -280,9 +274,10 @@ def bulk_upload_catalog(request):
             path = request.META['HTTP_HOST']
             path2 = ['http://' + path + '/media/file/' + f'Bulk-Catalog-{name}.xlsx']
             workbook.close()
-            return JsonResponse({'Message': 'Bulk Upload Catalog File', 'Execl File Link': path2}, status=200)
+            return JsonResponse({'Message': 'This is a file for uploading catalogs in bulk', 'Execl File Link': path2},
+                                status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Execl File Link': None}, status=400)
 
@@ -293,16 +288,17 @@ def bulk_upload_catalog(request):
 def get_image_link(request):
     upload_image = request.FILES.getlist('upload_image')
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             product_image = [
                 default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
                 for image in upload_image]
             path = request.META['HTTP_HOST']
             path1 = ['http://' + path + '/media/' + i for index, i in enumerate(product_image)]
-            return JsonResponse({'Message': 'Get Images Link', 'Images Link': path1}, status=200)
+            return JsonResponse({'Message': 'This is your image link', 'Images Link': path1}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Images Link': None}, status=400)
 
@@ -313,16 +309,17 @@ def get_image_link(request):
 def upload_catalog_file(request):
     upload_file = request.FILES['upload_file']
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             directory = 'D:\\Task\\E-Com\\media\\file'
             file_path = os.path.join(directory, str(upload_file))
             if os.path.exists(file_path):
-                wb = openpyxl.load_workbook(upload_file)
-                ws = wb.active
-                max_row = ws.max_row
+                workbook = openpyxl.load_workbook(upload_file)
+                worksheet = workbook.active
+                max_row = worksheet.max_row
                 for i in range(2, max_row + 1):
-                    row = ws[i]
+                    row = worksheet[i]
                     image_links = []
                     for cell in row:
                         if cell.value and ('http' in str(cell.value) in str(cell.value)):
@@ -349,9 +346,9 @@ def upload_catalog_file(request):
                     product_add.product = product
                     product_add.product_seller = seller_user
                     product_add.save()
-                return JsonResponse({'Message': 'Bulk Catalog Upload Successfully.'}, status=200)
+                return JsonResponse({'Message': 'Your Bulk Catalog file uploaded Successfully.'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__()}, status=400)
 
@@ -361,8 +358,9 @@ def upload_catalog_file(request):
 @permission_classes([IsAuthenticated])
 def view_all_product(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             view_product = Product.objects.filter(product_seller=seller_user)
             serializer = ProductSerializer(view_product, many=True)
             for data in serializer.data:
@@ -380,9 +378,9 @@ def view_all_product(request):
                 data.pop('product_description')
                 data.pop('product')
                 data.pop('product_seller')
-            return JsonResponse({'Message': 'All Product', 'Products': serializer.data}, status=200)
+            return JsonResponse({'Message': 'View all Product', 'Products': serializer.data}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Products': None}, status=400)
 
@@ -395,37 +393,24 @@ def product_update(request, update, product_images, SKU, product_name, product_b
             for image in product_images]
         path = request.META['HTTP_HOST']
         path1 = ['http://' + path + '/media/' + i for i in product_image]
-        if not product_images == '':
-            update.product_images = path1
-        if not SKU == '':
-            update.SKU = SKU
-        if not product_name == '':
-            update.product_name = product_name
-        if not product_branding == '':
-            update.product_branding = product_branding
-        if not product_tags == '':
-            update.product_tags = product_tags
-        if not product_color == '':
-            update.product_color = product_color
-        if not product_fabric == '':
-            update.product_fabric = product_fabric
-        if not product_description == '':
-            update.product_description = product_description
     else:
-        if not SKU == '':
-            update.SKU = SKU
-        if not product_name == '':
-            update.product_name = product_name
-        if not product_branding == '':
-            update.product_branding = product_branding
-        if not product_tags == '':
-            update.product_tags = product_tags
-        if not product_color == '':
-            update.product_color = product_color
-        if not product_fabric == '':
-            update.product_fabric = product_fabric
-        if not product_description == '':
-            update.product_description = product_description
+        path1 = update.product_images
+    if not product_images == '':
+        update.product_images = path1
+    if not SKU == '':
+        update.SKU = SKU
+    if not product_name == '':
+        update.product_name = product_name
+    if not product_branding == '':
+        update.product_branding = product_branding
+    if not product_tags == '':
+        update.product_tags = product_tags
+    if not product_color == '':
+        update.product_color = product_color
+    if not product_fabric == '':
+        update.product_fabric = product_fabric
+    if not product_description == '':
+        update.product_description = product_description
     update.save()
     return update
 
@@ -435,31 +420,32 @@ def product_update(request, update, product_images, SKU, product_name, product_b
 @permission_classes([IsAuthenticated])
 def update_product(request):
     primary_key = request.POST['primary_key']
-    product_images = request.FILES.getlist('product_images')
-    SKU = request.POST.get('SKU')
-    product_name = request.POST.get('product_name')
-    product_branding = request.POST.get('product_branding')
-    product_tags = request.POST.get('product_tags')
-    product_color = request.POST.get('product_color')
-    product_fabric = request.POST.get('product_fabric')
-    product_description = request.POST.get('product_description')
+    product_images = request.FILES.getlist('product_images', '')
+    SKU = request.POST.get('SKU', '')
+    product_name = request.POST.get('product_name', '')
+    product_branding = request.POST.get('product_branding', '')
+    product_tags = request.POST.get('product_tags', '')
+    product_color = request.POST.get('product_color', '')
+    product_fabric = request.POST.get('product_fabric', '')
+    product_description = request.POST.get('product_description', '')
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", "-"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if not primary_key.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             update = Product.objects.get(product_seller=seller_user, id=primary_key)
             update_data = {
                 'Data': product_update(request, update, product_images, SKU, product_name, product_branding,
                                        product_tags,
                                        product_color, product_fabric, product_description)}
-            return JsonResponse({'Message': 'Update Product Successfully.'}, status=200)
+            return JsonResponse({'Message': 'Your Product Updated Successfully.'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Product.DoesNotExist:
         return JsonResponse({'Message': 'ID is not exist'}, status=400)
     except Exception as e:
@@ -472,14 +458,15 @@ def update_product(request):
 def delete_product(request):
     primary_key = request.POST['primary_key']
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", "-"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if not primary_key.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             product_delete = Product.objects.get(product_seller=seller_user, id=primary_key)
             product_delete.delete()
             return JsonResponse({'Message': 'Delete Product Successfully.'}, status=200)
@@ -496,8 +483,9 @@ def delete_product(request):
 @permission_classes([IsAuthenticated])
 def inventory(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             view_catalog = Product.objects.filter(product_seller=seller_user)
             serial = ProductSerializer(view_catalog, many=True)
             for data in serial.data:
@@ -515,7 +503,7 @@ def inventory(request):
                 data.pop('product_seller')
             return JsonResponse({'Message': 'Filter Category', 'Stock': serial.data}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Stock': None}, status=400)
 
@@ -527,20 +515,21 @@ def edit_stock(request):
     primary_key = request.POST['primary_key']
     stock = request.POST['stock']
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", "-"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if not primary_key.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             stock_edit = Product.objects.get(product_seller=seller_user, id=primary_key)
             stock_edit.product_quantity = stock
             stock_edit.save()
             return JsonResponse({'Message': 'Stock Edit Successfully.'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Product.DoesNotExist:
         return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
@@ -553,8 +542,9 @@ def edit_stock(request):
 def inventory_filter_category(request):
     category = request.POST['category'].upper()
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             view_category_filter = Product.objects.filter(product_seller=seller_user, product_category=category)
             serial = ProductSerializer(view_category_filter, many=True)
             if len(view_category_filter) != 0:
@@ -575,7 +565,7 @@ def inventory_filter_category(request):
             else:
                 return JsonResponse({'Message': 'Category is Not exist', 'Data': None}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Data': None}, status=400)
 
@@ -594,14 +584,15 @@ def inventory_edit_catalog(request):
     product_fabric = request.POST.get('product_fabric', '')
     product_description = request.POST.get('product_description', '')
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", "-"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if not primary_key.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             update = Product.objects.get(product_seller=seller_user, id=primary_key)
             update_data = {
                 'Data': product_update(request, update, product_images, SKU, product_name, product_branding,
@@ -647,20 +638,21 @@ def rating_product(product_rating, products):
 def view_rating(request):
     primary_key = request.POST['primary_key']
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", "-"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if not primary_key.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             products = Product.objects.get(pk=primary_key, product_seller=seller_user)
             product_rating = BuyerFeedback.objects.filter(feedback_product=products)
             data = rating_product(product_rating, products)
             return JsonResponse({'Message': 'View Rating', 'Rating': data}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Product.DoesNotExist:
         return JsonResponse({'Message': 'Product is not exist'}, status=400)
     except Exception as e:
@@ -685,8 +677,9 @@ def order_data(view_all_order):
 @permission_classes([IsAuthenticated])
 def pending_order(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             buyer_order = Payment.objects.filter(details__cart__status=True)
             buyer_all_order = Order.objects.filter(details__cart__product__product_seller=seller_user,
                                                    details__status=True).only('order')
@@ -716,7 +709,7 @@ def pending_order(request):
             view_order = order_data(view_all_order)
             return JsonResponse({'Message': 'View All Pending Order', 'View All Order': view_order}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'View All Order': None}, status=400)
 
@@ -730,21 +723,18 @@ def filter_order_date(request):
     start_time = datetime.time(00, 00, 00)
     end_time = datetime.time(23, 59, 59)
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
-            start_object = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-            start_datetime = datetime.datetime(year=start_object.year, month=start_object.month, day=start_object.day,
-                                               hour=start_time.hour, minute=start_time.minute, second=start_time.second)
-            end_object = datetime.datetime.strptime(end_date, "%Y-%m-%d")
-            end_datetime = datetime.datetime(year=end_object.year, month=end_object.month, day=end_object.day,
-                                             hour=end_time.hour, minute=end_time.minute, second=end_time.second)
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
+            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             view_all_order = Order.objects.filter(order_date__range=(start_datetime, end_datetime),
                                                   details__cart__product__product_seller=seller_user,
                                                   details__cart__status=True, status=True)
             view_filter_data = order_data(view_all_order)
             return JsonResponse({'Message': 'Filter By: Order Date', 'Filter Order': view_filter_data}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except ValueError:
         return JsonResponse({'Message': 'Date is not valid'}, status=400)
     except Exception as e:
@@ -760,21 +750,18 @@ def filter_dispatch_date(request):
     start_time = datetime.time(00, 00, 00)
     end_time = datetime.time(23, 59, 59)
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
-            start_object = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-            start_datetime = datetime.datetime(year=start_object.year, month=start_object.month, day=start_object.day,
-                                               hour=start_time.hour, minute=start_time.minute, second=start_time.second)
-            end_object = datetime.datetime.strptime(end_date, "%Y-%m-%d")
-            end_datetime = datetime.datetime(year=end_object.year, month=end_object.month, day=end_object.day,
-                                             hour=end_time.hour, minute=end_time.minute, second=end_time.second)
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
+            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             view_all_order = Order.objects.filter(dispatch_date__range=(start_datetime, end_datetime),
                                                   details__cart__product__product_seller=seller_user,
                                                   details__cart__status=True, status=True)
             view_filter_data = order_data(view_all_order)
             return JsonResponse({'Message': 'Filter By: Dispatch Date', 'Filter Order': view_filter_data}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except ValueError:
         return JsonResponse({'Message': 'Date is not valid'}, status=400)
     except Exception as e:
@@ -787,8 +774,9 @@ def filter_dispatch_date(request):
 def order_search(request):
     search = request.POST.get('search', '')
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             view_all_order = Order.objects.filter(
                 Q(order__icontains=search) | Q(company__icontains=search) | Q(
                     details__cart__product__SKU__icontains=search),
@@ -800,10 +788,10 @@ def order_search(request):
                      'Search Order': search_data}, status=200)
             else:
                 return JsonResponse(
-                    {'Message': 'Product Is Not Found', 'Message2': 'Search Order Only SKU, Order ID, Company ID',
+                    {'Message': 'Order Is Not Found', 'Message2': 'Search Order Only SKU, Order ID, Company ID',
                      'Search Order': None}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Search Order': None}, status=400)
 
@@ -834,26 +822,27 @@ def order_accept(request):
     primary_key = request.POST['primary_key']
     id_list = primary_key.split(',')
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if primary_key.isalpha():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             if not len(id_list) > 1:
                 accept = Order.objects.get(id=primary_key, status=True,
                                            details__cart__product__product_seller=seller_user)
-                accept_order = {'Accept': accept_data(accept)}
+                accept_order = accept_data(accept)
                 return JsonResponse({'Message': 'Order Accept'}, status=200)
             else:
                 for i in id_list:
                     accept = Order.objects.get(id=i, status=True, details__cart__product__product_seller=seller_user)
-                    accept_order = {'Accept': accept_data(accept)}
+                    accept_order = accept_data(accept)
                 return JsonResponse({'Message': 'Order Accept'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Order.DoesNotExist:
         return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
@@ -865,8 +854,9 @@ def order_accept(request):
 @permission_classes([IsAuthenticated])
 def ready_to_ship(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             view_accept_all_order = Accept.objects.filter(status=True, order__product__product_seller=seller_user)
             accept_orders = [{
                 'Order ID': i.order.order,
@@ -880,7 +870,7 @@ def ready_to_ship(request):
             } for i in view_accept_all_order]
             return JsonResponse({'Message': 'Ready To Ship', 'Accept Orders': accept_orders}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Accept Orders': None}, status=400)
 
@@ -920,14 +910,15 @@ def shipping_label(request):
     primary_key = request.POST['primary_key']
     key_list = primary_key.split(',')
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if primary_key.isalpha():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             purchase = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
             invoice = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
             purchase_order = random.choices(purchase, k=12)
@@ -948,7 +939,7 @@ def shipping_label(request):
                     data_list.append(data)
                 return JsonResponse({'Message': 'Shipping Label', 'Label Data': data_list}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Accept.DoesNotExist:
         return JsonResponse({'Message': 'ID is not exist'}, status=400)
     except Exception as e:
@@ -968,9 +959,6 @@ def cancel_data(cancel):
     order_cancel.save()
     cancel.status = False
     cancel.save()
-    product = Product.objects.get(id=cancel.product.id)
-    product.product_quantity = product.product_quantity + cancel.qty
-    product.save()
     return cancel
 
 
@@ -981,14 +969,15 @@ def cancel_order(request):
     primary_key = request.POST['primary_key']
     id_list = primary_key.split(',')
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
             for char in symbol:
                 if primary_key.find(char) != -1:
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if primary_key.isalpha():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             if not len(id_list) > 1:
                 cancel = Order.objects.get(id=primary_key, status=True,
                                            details__cart__product__product_seller=seller_user)
@@ -1000,7 +989,7 @@ def cancel_order(request):
                     order_cancel = cancel_data(cancel)
                 return JsonResponse({'Message': 'Order Cancel'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Order.DoesNotExist:
         return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
@@ -1012,8 +1001,9 @@ def cancel_order(request):
 @permission_classes([IsAuthenticated])
 def cancelled(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             view_cancel_all_order = Cancel.objects.filter(status=True, order__product__product_seller=seller_user)
             cancel_orders = [{
                 'Image': i.product.product_images,
@@ -1026,7 +1016,7 @@ def cancelled(request):
             } for i in view_cancel_all_order]
             return JsonResponse({'Message': 'View Cancelled', 'Cancel Order': cancel_orders}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Cancel Order': None}, status=400)
 
@@ -1056,13 +1046,14 @@ def pricing_data(product, seller_user):
 @permission_classes([IsAuthenticated])
 def pricing(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             product = Product.objects.filter(product_seller=seller_user)
             view_product = pricing_data(product, seller_user)
             return JsonResponse({'Message': 'Pricing', 'Product': view_product}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Product': None}, status=400)
 
@@ -1075,7 +1066,8 @@ def edit_pricing(request):
     product_price = request.POST['product_price']
     product_sale_price = request.POST['product_sale_price']
     try:
-        if 'email' in request.session:
+        user = request.user
+        if user.is_authenticated:
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@", " ", ","
             for char in symbol:
                 if primary_key.find(char) != -1 or product_price.find(char) != -1 or product_sale_price.find(
@@ -1083,14 +1075,14 @@ def edit_pricing(request):
                     return JsonResponse({'Message': 'ID is not valid'}, status=400)
             if primary_key.isalpha() or not product_price.isdigit() or not product_sale_price.isdigit():
                 return JsonResponse({'Message': 'ID is not valid'}, status=400)
-            seller_user = Register.objects.get(email=request.session['email'])
+            seller_user = Register.objects.get(id=user.id)
             edit_product_price = Product.objects.get(id=primary_key, product_seller=seller_user)
             edit_product_price.product_price = product_price
             edit_product_price.product_sale_price = product_sale_price
             edit_product_price.save()
             return JsonResponse({'Message': 'Price Edit Successfully'}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Product.DoesNotExist:
         return JsonResponse({'Message': 'ID is not exist.'}, status=400)
     except Exception as e:
@@ -1103,8 +1095,9 @@ def edit_pricing(request):
 def filter_category(request):
     category = request.POST['category'].upper()
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             filter_product = Product.objects.filter(product_seller=seller_user, product_sub_category=category)
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
             for char in symbol:
@@ -1115,7 +1108,7 @@ def filter_category(request):
             view_product = pricing_data(filter_product, seller_user)
             return JsonResponse({'Message': 'Filter By: Category', 'Product': view_product}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Product': None}, status=400)
 
@@ -1129,20 +1122,17 @@ def date_growth(request):
     start_time = datetime.time(00, 00, 00)
     end_time = datetime.time(23, 59, 59)
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
-            start_object = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-            start_datetime = datetime.datetime(year=start_object.year, month=start_object.month, day=start_object.day,
-                                               hour=start_time.hour, minute=start_time.minute, second=start_time.second)
-            end_object = datetime.datetime.strptime(end_date, "%Y-%m-%d")
-            end_datetime = datetime.datetime(year=end_object.year, month=end_object.month, day=end_object.day,
-                                             hour=end_time.hour, minute=end_time.minute, second=end_time.second)
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
+            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             filter_product = Product.objects.filter(product_date__range=(start_datetime, end_datetime),
                                                     product_seller=seller_user)
             view_product = pricing_data(filter_product, seller_user)
             return JsonResponse({'Message': 'Date Growth', 'Growth Product': view_product}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except ValueError:
         return JsonResponse({'Message': 'Date is not valid'}, status=400)
     except Exception as e:
@@ -1171,12 +1161,14 @@ def return_data(return_order):
 @permission_classes([IsAuthenticated])
 def return_tracking(request):
     try:
-        seller_user = Register.objects.get(email=request.session['email'])
-        return_order = Return.objects.filter(order__cart__product__product_seller=seller_user)
-        view_returns = return_data(return_order)
-        return JsonResponse({'Message': 'Tracking Return', 'Return Product': view_returns}, status=200)
-    except KeyError:
-        return JsonResponse({'Message': 'Login First'}, status=401)
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
+            return_order = Return.objects.filter(order__cart__product__product_seller=seller_user)
+            view_returns = return_data(return_order)
+            return JsonResponse({'Message': 'Tracking Return', 'Return Product': view_returns}, status=200)
+        else:
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Return Product': None}, status=400)
 
@@ -1186,13 +1178,12 @@ def return_tracking(request):
 @permission_classes([IsAuthenticated])
 def return_overview(request):
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             product = Product.objects.filter(product_seller=seller_user)
-            print(product)
             view_returns = []
             for i in product:
-                print(i)
                 return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
                                                      order__cart__product__product=i.product)
                 order = Accept.objects.filter(product__product=i.product, product__product_seller=seller_user)
@@ -1201,29 +1192,24 @@ def return_overview(request):
                     total_order += k.qty
                 for _ in return_order:
                     total += 1
-
                 if total != 0 and total_order != 0:
-                    data = {
-                        'Image': i.product_images,
-                        'Name': i.product_name,
-                        'Category': i.product_category,
-                        'Return Order': total,
-                        'Returns': f'{round(total * 100 / total_order, 1)}%',
-                    }
-                    view_returns.append(data)
+                    return_order_total = total
+                    return_returns_total = round(total * 100 / total_order, 1)
                 else:
-                    data = {
-                        'Image': i.product_images,
-                        'Name': i.product_name,
-                        'Category': i.product_category,
-                        'Return Order': '-',
-                        'Returns': '0.0%',
-                    }
-                    view_returns.append(data)
+                    return_order_total = '-'
+                    return_returns_total = '0.0'
+                data = {
+                    'Image': i.product_images,
+                    'Name': i.product_name,
+                    'Category': i.product_category,
+                    'Return Order': return_order_total,
+                    'Returns': f'{return_returns_total}%',
+                }
+                view_returns.append(data)
 
             return JsonResponse({'Message': 'Return Over View', 'returns': view_returns}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'returns': None}, status=400)
 
@@ -1232,10 +1218,11 @@ def return_overview(request):
 @authentication_classes([JWTTokenUserAuthentication])
 @permission_classes([IsAuthenticated])
 def return_filter_category(request):
-    category = request.POST['category']
+    category = request.POST['category'].upper()
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
             return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
                                                  order__cart__product__product_category=category)
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
@@ -1247,7 +1234,7 @@ def return_filter_category(request):
             view_returns = return_data(return_order)
             return JsonResponse({'Message': 'Filter By: Category', 'Filter Data': view_returns}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
         return JsonResponse({'Message': e.__str__(), 'Filter Data': None}, status=400)
 
@@ -1261,20 +1248,17 @@ def return_filter_date(request):
     start_time = datetime.time(00, 00, 00)
     end_time = datetime.time(23, 59, 59)
     try:
-        if 'email' in request.session:
-            seller_user = Register.objects.get(email=request.session['email'])
-            start_object = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-            start_datetime = datetime.datetime(year=start_object.year, month=start_object.month, day=start_object.day,
-                                               hour=start_time.hour, minute=start_time.minute, second=start_time.second)
-            end_object = datetime.datetime.strptime(end_date, "%Y-%m-%d")
-            end_datetime = datetime.datetime(year=end_object.year, month=end_object.month, day=end_object.day,
-                                             hour=end_time.hour, minute=end_time.minute, second=end_time.second)
+        user = request.user
+        if user.is_authenticated:
+            seller_user = Register.objects.get(id=user.id)
+            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             return_order = Return.objects.filter(return_date__range=(start_datetime, end_datetime),
                                                  order__cart__product__product_seller=seller_user)
             view_returns = return_data(return_order)
             return JsonResponse({'Message': 'Filter By: Return Date', 'Filter Data': view_returns}, status=200)
         else:
-            return JsonResponse({'Message': 'Login First'}, status=401)
+            return JsonResponse({'Message': 'If you are not currently logged in, please login first'}, status=401)
     except ValueError:
         return JsonResponse({'Message': 'Date is not valid'}, status=400)
     except Exception as e:
