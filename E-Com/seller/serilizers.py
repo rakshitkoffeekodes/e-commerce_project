@@ -13,7 +13,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Register
-        fields = ['register_user', 'profile_picture', 'mobile_no', 'address']
+        fields = ['profile_picture', 'mobile_no', 'address', 'register_user']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -23,14 +23,12 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Order
         fields = '__all__'
 
 
 class AcceptSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Accept
         fields = '__all__'

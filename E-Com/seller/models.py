@@ -5,6 +5,7 @@ from django.db import models
 
 
 class Register(models.Model):
+    register_key = models.AutoField(primary_key=True)
     register_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     profile_picture = models.FileField(upload_to="media/", default="default.jpg")
     mobile_no = models.CharField(unique=True, max_length=10, default='+ 91')
@@ -45,6 +46,7 @@ class Product(models.Model):
                     ('HOSE NOZZLES', 'HOSE NOZZLES'), ('GARDEN FAUCETS', 'GARDEN FAUCETS'),
                     ('WATER PUMPS', 'WATER PUMPS'), ('GARDEN SPRAY', 'GARDEN SPRAY')))
     ]
+    product_key = models.AutoField(primary_key=True)
     product_images = models.JSONField()
     product_SKU = models.CharField(max_length=50)
     product_name = models.CharField(max_length=100)
@@ -69,6 +71,7 @@ class Product(models.Model):
 
 
 class Order(models.Model):
+    order_key = models.AutoField(primary_key=True)
     details = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
@@ -87,6 +90,7 @@ class Order(models.Model):
 
 
 class Accept(models.Model):
+    accept_key = models.AutoField(primary_key=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
@@ -101,6 +105,7 @@ class Accept(models.Model):
 
 
 class Cancel(models.Model):
+    cancel_key = models.AutoField(primary_key=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)

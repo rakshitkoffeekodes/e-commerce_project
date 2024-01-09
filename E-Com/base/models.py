@@ -89,7 +89,7 @@ class Return(models.Model):
 class BuyerFeedback(models.Model):
     feedback_id = models.AutoField(primary_key=True, null=False)
     feedback_login = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
-    # feedback_product = models.ForeignKey("seller.Product", on_delete=models.CASCADE)
+    feedback_product = models.ForeignKey("seller.Product", on_delete=models.CASCADE, null=True)
     feedback_description = models.TextField(max_length=500)
     feedback_datetime = models.DateTimeField(auto_now_add=True)
     feedback_rating = models.IntegerField()
