@@ -136,10 +136,13 @@ def profile(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            serial = RegisterSerializer(seller_user)
-            return JsonResponse(
-                {'message': 'Profile Data', 'profile_data': serial.data},
-                status=200)
+            serializer = RegisterSerializer(seller_user)
+            serializer_data = serializer.data.get('register_user')
+            serializer_dictionary = serializer_data
+            for data in serializer.data:
+                if 'register_user' not in data:
+                    serializer_dictionary[data] = serializer.data.get(data)
+            return JsonResponse({'message': 'Profile Data', 'profile_data': serializer_dictionary}, status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
@@ -204,17 +207,17 @@ def add_product(request):
         if user:
             seller_user = Register.objects.get(register_user=user)
             product_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
-            id1 = random.choices(product_id, k=9)
-            product = "".join(id1)
+            products_id = random.choices(product_id, k=9)
+            product = "".join(products_id)
             product_image = [
                 default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
                 for image in product_images]
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in product_image]
+            url_path = request.META['HTTP_HOST']
+            image_url = ['http://' + url_path + '/media/' + image for image in product_image]
             product_add = Product(
                 product_category=product_category,
                 product_sub_category=product_sub_category,
-                product_images=path1,
+                product_images=image_url,
                 product_SKU=product_SKU,
                 product_name=product_name,
                 product_price=product_price,
@@ -251,8 +254,8 @@ def bulk_upload_catalog(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            name = random.randint(00000, 99999)
-            workbook = xlsxwriter.Workbook(f'D:\\Task\\E-Com\\media\\file\\Bulk-Catalog-{name}.xlsx')
+            file_name = random.randint(00000, 99999)
+            workbook = xlsxwriter.Workbook(f'D:\\Task\\E-Com\\media\\file\\Bulk-Catalog-{file_name}.xlsx')
             worksheet = workbook.add_worksheet('Catalog Data')
             worksheet.set_column_pixels(0, 16, 300)
             worksheet.set_default_row(20)
@@ -260,15 +263,15 @@ def bulk_upload_catalog(request):
                 default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
                 for image in product_image
             ]
-            path = request.META['HTTP_HOST']
-            path1 = ['http://' + path + '/media/' + i for i in product_image]
+            url_path = request.META['HTTP_HOST']
+            image_url = ['http://' + url_path + '/media/' + image for image in product_image]
             expenses = (
                 'Images1', 'Images2', 'Images3', 'Images4', 'SKU', 'Name', 'Price', 'Sale Price', 'Quantity',
                 'product_category', 'product_sub_category', 'Branding',
                 'Tags', 'Size', 'Color', 'Fabric', 'Description')
             row = 1
             for col_num, value in enumerate(expenses):
-                for index, i in enumerate(path1):
+                for index, image in enumerate(image_url):
                     if value == 'product_category':
                         worksheet.write(0, col_num, value)
                         worksheet.write(row + index, col_num, product_category)
@@ -277,13 +280,14 @@ def bulk_upload_catalog(request):
                         worksheet.write(row + index, col_num, product_sub_category)
                     elif value == 'Images1':
                         worksheet.write(0, col_num, value)
-                        worksheet.write(row + index, col_num, i)
+                        worksheet.write(row + index, col_num, image)
                     worksheet.write(0, col_num, value)
-            path = request.META['HTTP_HOST']
-            path2 = ['http://' + path + '/media/file/' + f'Bulk-Catalog-{name}.xlsx']
+            url_path = request.META['HTTP_HOST']
+            file_url = ['http://' + url_path + '/media/file/' + f'Bulk-Catalog-{file_name}.xlsx']
             workbook.close()
-            return JsonResponse({'message': 'This is a file for uploading catalogs in bulk', 'execl_file_link': path2},
-                                status=200)
+            return JsonResponse(
+                {'message': 'This is a file for uploading catalogs in bulk', 'execl_file_link': file_url},
+                status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
@@ -304,9 +308,9 @@ def get_image_link(request):
             product_image = [
                 default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
                 for image in upload_image]
-            path = request.META['HTTP_HOST']
-            image_link_data = ['http://' + path + '/media/' + i for index, i in enumerate(product_image)]
-            return JsonResponse({'message': 'This is your image link', 'image_link': image_link_data}, status=200)
+            url_path = request.META['HTTP_HOST']
+            image_link = ['http://' + url_path + '/media/' + i for index, i in enumerate(product_image)]
+            return JsonResponse({'message': 'This is your image link', 'image_link': image_link}, status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
     except Exception as e:
@@ -330,15 +334,16 @@ def upload_catalog_file(request):
                 workbook = openpyxl.load_workbook(upload_file)
                 worksheet = workbook.active
                 max_row = worksheet.max_row
-                for i in range(2, max_row + 1):
-                    row = worksheet[i]
+                for row in range(2, max_row + 1):
+                    row = worksheet[row]
                     image_links = []
                     for cell in row:
                         if cell.value and ('http' in str(cell.value) in str(cell.value)):
                             image_links.append(str(cell.value))
-                    p_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H"]
-                    id2 = random.choices(p_id, k=9)
-                    product = "".join(id2)
+                    product_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G",
+                                  "H"]
+                    products_id = random.choices(product_id, k=9)
+                    product = "".join(products_id)
                     product_add = Product()
                     product_add.product_images = image_links
                     product_add.product_SKU = row[4].value
@@ -408,12 +413,12 @@ def product_update(request, update_inventory_catalog, product_images, product_SK
         product_image = [
             default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
             for image in product_images]
-        path = request.META['HTTP_HOST']
-        path1 = ['http://' + path + '/media/' + i for i in product_image]
+        url_path = request.META['HTTP_HOST']
+        image_url = ['http://' + url_path + '/media/' + i for i in product_image]
     else:
-        path1 = update_inventory_catalog.product_images
+        image_url = update_inventory_catalog.product_images
     if not product_images == '':
-        update_inventory_catalog.product_images = path1
+        update_inventory_catalog.product_images = image_url
     if not product_SKU == '':
         update_inventory_catalog.product_SKU = product_SKU
     if not product_name == '':
@@ -459,10 +464,9 @@ def update_product(request):
             seller_user = Register.objects.get(register_user=user)
             update_inventory_catalog = Product.objects.get(product_seller=seller_user, product_key=product_key)
             product_update_data = {
-                'Data': product_update(request, update_inventory_catalog, product_images, product_SKU, product_name,
-                                       product_branding,
-                                       product_tags,
-                                       product_color, product_fabric, product_description)}
+                'product_data': product_update(request, update_inventory_catalog, product_images, product_SKU,
+                                               product_name, product_branding, product_tags, product_color,
+                                               product_fabric, product_description)}
             return JsonResponse({'message': 'Your Product Updated Successfully.'}, status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
@@ -539,7 +543,7 @@ def inventory(request):
 @permission_classes([IsAuthenticated])
 def edit_stock(request):
     inventory_key = request.POST['inventory_key']
-    stock = request.POST['stock']
+    product_stock = request.POST['product_stock']
     try:
         user = request.user
         if user:
@@ -551,7 +555,7 @@ def edit_stock(request):
                 return JsonResponse({'message': 'ID is not valid'}, status=400)
             seller_user = Register.objects.get(register_user=user)
             stock_edit = Product.objects.get(product_seller=seller_user, product_key=inventory_key)
-            stock_edit.product_quantity = stock
+            stock_edit.product_quantity = product_stock
             stock_edit.save()
             return JsonResponse({'message': 'Stock Edit Successfully.'}, status=200)
         else:
@@ -627,10 +631,9 @@ def inventory_edit_catalog(request):
             seller_user = Register.objects.get(register_user=user)
             update_inventory_catalog = Product.objects.get(product_seller=seller_user, product_key=inventory_key)
             inventory_update_data = {
-                'Data': product_update(request, update_inventory_catalog, product_images, product_SKU, product_name,
-                                       product_branding,
-                                       product_tags,
-                                       product_color, product_fabric, product_description)}
+                'product_data': product_update(request, update_inventory_catalog, product_images, product_SKU,
+                                               product_name, product_branding, product_tags, product_color,
+                                               product_fabric, product_description)}
             return JsonResponse({'message': 'Edit Catalog Successfully.'}, status=200)
         else:
             return JsonResponse({'message': 'Login First'}, status=401)
@@ -685,7 +688,6 @@ def view_rating(request):
                 return JsonResponse({'message': 'ID is not valid'}, status=400)
             seller_user = Register.objects.get(register_user=user)
             products = Product.objects.get(product_key=inventory_key, product_seller=seller_user)
-            print(products)
             product_rating = BuyerFeedback.objects.filter(feedback_product=products)
             rating_data = rating_product(product_rating, products)
             return JsonResponse({'message': 'View Rating', 'rating_data': rating_data}, status=200)
@@ -700,15 +702,15 @@ def view_rating(request):
 # ==========This function is for product data==========
 
 def order_data(view_all_order):
-    view_order = [{'order_id': i.order,
-                   'image': i.details.cart.product.product_images,
-                   'name': i.details.cart.product.product_name,
-                   'product_sku': i.details.cart.product.product_SKU,
-                   'company_id': i.company,
-                   'quantity': i.details.cart.qty,
-                   'size': i.details.cart.product.product_size,
-                   'dispatch_date': i.dispatch_date}
-                  for i in view_all_order]
+    view_order = [{'order_id': order.order,
+                   'image': order.details.cart.product.product_images,
+                   'name': order.details.cart.product.product_name,
+                   'product_sku': order.details.cart.product.product_SKU,
+                   'company_id': order.company,
+                   'quantity': order.details.cart.qty,
+                   'size': order.details.cart.product.product_size,
+                   'dispatch_date': order.dispatch_date}
+                  for order in view_all_order]
     return view_order
 
 
@@ -726,13 +728,13 @@ def pending_order(request):
             buyer_all_order = Order.objects.filter(details__cart__product__product_seller=seller_user,
                                                    details__status=True).only('order')
 
-            order_list = [i.order for i in buyer_all_order]
+            order_list = [order.order for order in buyer_all_order]
             for order in buyer_order:
                 if order.order not in order_list:
-                    company_id = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G",
-                                  "H"]
-                    id2 = random.choices(company_id, k=9)
-                    company = "".join(id2)
+                    company_id1 = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G",
+                                   "H"]
+                    company_id2 = random.choices(company_id1, k=9)
+                    company = "".join(company_id2)
                     orders = Order(
                         details=order.details,
                         product=order.details.cart.product,
@@ -772,7 +774,6 @@ def filter_order_date(request):
         if user:
             seller_user = Register.objects.get(register_user=user)
             start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
-
             end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             view_all_order = Order.objects.filter(order_date__range=(start_datetime, end_datetime),
                                                   details__cart__product__product_seller=seller_user,
