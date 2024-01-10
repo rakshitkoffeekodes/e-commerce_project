@@ -1,16 +1,14 @@
 import os
 import datetime
+from datetime import timedelta, time, date
 import random
 import openpyxl
 import xlsxwriter
-
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.http import JsonResponse
-from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -19,8 +17,6 @@ from .serilizers import *
 from django.conf import settings
 from django.core.mail import send_mail
 from base.models import *
-# from buyer.serlializers import *
-
 
 
 # ==========This function is for generated OTP==========
@@ -52,7 +48,6 @@ def register(request):
     try:
         mobile_data = Register.objects.filter(mobile_no=mobile_no)
         email_data = User.objects.filter(email=email)
-        print('===')
         if not email.endswith('.com'):
             return JsonResponse({'message': 'Invalid email address.'}, status=400)
         if len(mobile_no) != 10:
@@ -170,13 +165,14 @@ def update_profile(request):
             if not profile_picture == '':
                 seller_user.profile_picture = profile_picture
             if not first_name == '':
-                seller_user.first_name = first_name
+                user.first_name = first_name
             if not last_name == '':
-                seller_user.last_name = last_name
+                user.last_name = last_name
             if not mobile_no == '':
                 seller_user.mobile_no = mobile_no
             if not address == '':
                 seller_user.address = address
+            user.save()
             seller_user.save()
             return JsonResponse({'message': 'Profile Update Successfully.'}, status=200)
         else:
@@ -217,6 +213,21 @@ def add_product(request):
                 for image in product_images]
             url_path = request.META['HTTP_HOST']
             image_url = ['http://' + url_path + '/media/' + image for image in product_image]
+            items = ['CLOTHE', 'ELECTRONICS', 'BOOKS', 'BEAUTY', 'MEN ACCESSORIES', 'WOMEN ACCESSORIES', 'FURNITURE',
+                     'GARDEN']
+            sub_items = ['BOY', 'GIRL', 'MEN', 'WOMEN', 'MOBILE', 'LAPTOP', 'TABLET', 'COMPUTER', 'TV', 'CAMERA',
+                         'HOME AUDIO', 'FINANCE & ACCOUNTING EXAMS BOOKS', 'GOVERNMENT EXAMS BOOKS',
+                         'EXAMS BY UPSC BOOKS', 'ENGINEERING ENTRANCE BOOKS', 'DEFENCE BOOKS',
+                         'BANKING & INSURANCE BOOKS', 'ARTS, DESIGN AND EDUCATION BOOKS', 'MAKEUP', 'SKIN', 'HAIR',
+                         'FRAGRANCES', 'MENS GROOMING', 'UNISEX PERSONAL CARE', 'BELT', 'CAPS & HATS',
+                         'MUFFLERS, SCARVES & GLOVES', 'HANDKERCHIEFS', 'SOCKS', 'SUNGLASSES', 'WALLET', 'WATCHES',
+                         'HELMET', 'JEWELLERY', 'BELTS', 'CAPS & HATS', 'HAIR ACCESSORIES', 'SOCKS', 'SUNGLASSES',
+                         'UMBRELLAS', 'WATCHES', 'PINS', 'FURNITURE', 'WATERING CANS', 'GARDENING TOOLS',
+                         'HOSE NOZZLES', 'GARDEN FAUCETS', 'WATER PUMPS', 'GARDEN SPRAY']
+            if product_category not in items:
+                return JsonResponse({'message': 'Category Is not Valid'})
+            if product_sub_category not in sub_items:
+                return JsonResponse({'message': 'Sub Category Is not valid'})
             product_add = Product(
                 product_category=product_category,
                 product_sub_category=product_sub_category,
@@ -232,7 +243,7 @@ def add_product(request):
                 product_color=product_color,
                 product_fabric=product_fabric,
                 product_description=product_description,
-                product_date=datetime.datetime.now(),
+                product_date=datetime.now(),
                 product=product,
                 product_seller=seller_user,
             )
@@ -312,7 +323,7 @@ def get_image_link(request):
                 default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
                 for image in upload_image]
             url_path = request.META['HTTP_HOST']
-            image_link = ['http://' + url_path + '/media/' + i for index, i in enumerate(product_image)]
+            image_link = ['http://' + url_path + '/media/' + image for index, image in enumerate(product_image)]
             return JsonResponse({'message': 'This is your image link', 'image_link': image_link}, status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
@@ -362,7 +373,7 @@ def upload_catalog_file(request):
                     product_add.product_color = row[14].value
                     product_add.product_fabric = row[15].value
                     product_add.product_description = row[16].value
-                    product_add.product_date = datetime.datetime.now()
+                    product_add.product_date = datetime.now()
                     product_add.product = product
                     product_add.product_seller = seller_user
                     product_add.save()
@@ -390,6 +401,9 @@ def view_all_product(request):
                     data['product_stock'] = 'Out of Stock'
                 else:
                     data['product_stock'] = 'Is Stock'
+                product = Product.objects.get(product_key=data.get('product_key'))
+                product.product_stock = data['product_stock']
+                product.save()
                 data.pop('product_key')
                 data.pop('product_sale_price')
                 data.pop('product_quantity')
@@ -417,7 +431,7 @@ def product_update(request, update_inventory_catalog, product_images, product_SK
             default_storage.save(os.path.join(settings.MEDIA_ROOT, 'Product', image.name.replace(' ', '_')), image)
             for image in product_images]
         url_path = request.META['HTTP_HOST']
-        image_url = ['http://' + url_path + '/media/' + i for i in product_image]
+        image_url = ['http://' + url_path + '/media/' + image for image in product_image]
     else:
         image_url = update_inventory_catalog.product_images
     if not product_images == '':
@@ -520,6 +534,13 @@ def inventory(request):
             view_catalog = Product.objects.filter(product_seller=seller_user)
             serial = ProductSerializer(view_catalog, many=True)
             for data in serial.data:
+                if data.get('product_quantity') == 0:
+                    data['product_stock'] = 'Out of Stock'
+                else:
+                    data['product_stock'] = 'Is Stock'
+                product = Product.objects.get(product_key=data.get('product_key'))
+                product.product_stock = data['product_stock']
+                product.save()
                 data.pop('product_key')
                 data.pop('product_sale_price')
                 data.pop('product_category')
@@ -706,24 +727,16 @@ def view_rating(request):
 
 def order_data(view_all_order):
     view_order = [{'order_id': order.order,
-                   'image': order.details.cart.product.product_images,
-                   'name': order.details.cart.product.product_name,
-                   'product_sku': order.details.cart.product.product_SKU,
+                   'image': order.payment.details.product.product_images,
+                   'name': order.payment.details.product.product_name,
+                   'product_sku': order.payment.details.product.product_SKU,
                    'company_id': order.company,
-                   'quantity': order.details.cart.qty,
-                   'size': order.details.cart.product.product_size,
+                   'quantity': order.qty,
+                   'size': order.product_size,
                    'dispatch_date': order.dispatch_date}
                   for order in view_all_order]
     return view_order
 
-
-<<<<<<< HEAD
-class Payment:
-    pass
-
-=======
-# ==========This function is for pending order==========
->>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -733,32 +746,31 @@ def pending_order(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            buyer_order = Payment.objects.filter(details__cart__status=True)
-            buyer_all_order = Order.objects.filter(details__cart__product__product_seller=seller_user,
-                                                   details__status=True).only('order')
-
+            buyer_order = BuyerPayment.objects.filter(cancel=True)
+            buyer_all_order = Order.objects.filter(payment__details__product__product_seller=seller_user,
+                                                   payment__cancel=True).only('order')
             order_list = [order.order for order in buyer_all_order]
             for order in buyer_order:
-                if order.order not in order_list:
+                if order.order_key not in order_list:
                     company_id1 = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G",
                                    "H"]
                     company_id2 = random.choices(company_id1, k=9)
                     company = "".join(company_id2)
                     orders = Order(
-                        details=order.details,
-                        product=order.details.cart.product,
-                        buyer=order.details.cart.buyer,
-                        qty=order.details.cart.qty,
-                        product_color=order.details.cart.product_color,
-                        product_size=order.details.cart.product_size,
-                        total=order.details.cart.total,
-                        order=order.order,
+                        payment=order,
+                        product=order.details.product,
+                        buyer=order.buyer,
+                        qty=order.details.qty,
+                        product_color=order.details.product.product_color,
+                        product_size=order.details.product.product_size,
+                        total=order.amount,
+                        order=order.order_key,
                         company=company,
-                        order_date=datetime.datetime.now(),
+                        order_date=datetime.now(),
                     )
-                    orders.dispatch_date = orders.order_date + datetime.timedelta(days=4)
+                    orders.dispatch_date = orders.order_date + timedelta(days=4)
                     orders.save()
-            view_all_order = Order.objects.filter(details__cart__product__product_seller=seller_user, status=True)
+            view_all_order = Order.objects.filter(payment__details__product__product_seller=seller_user, status=True)
             view_order_data = order_data(view_all_order)
             return JsonResponse({'message': 'View All Pending Order', 'view_all_order_data': view_order_data},
                                 status=200)
@@ -776,17 +788,17 @@ def pending_order(request):
 def filter_order_date(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
+    start_time = time(00, 00, 00)
+    end_time = time(23, 59, 59)
     try:
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
-            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
+            start_datetime = datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             view_all_order = Order.objects.filter(order_date__range=(start_datetime, end_datetime),
-                                                  details__cart__product__product_seller=seller_user,
-                                                  details__cart__status=True, status=True)
+                                                  payment__details__product__product_seller=seller_user,
+                                                  payment__cancel=True, status=True)
             view_filter_data = order_data(view_all_order)
             return JsonResponse({'message': 'Filter By: Order Date', 'filter_order_date': view_filter_data}, status=200)
         else:
@@ -805,17 +817,17 @@ def filter_order_date(request):
 def filter_dispatch_date(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
+    start_time = time(00, 00, 00)
+    end_time = time(23, 59, 59)
     try:
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
-            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
+            start_datetime = datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             view_all_order = Order.objects.filter(dispatch_date__range=(start_datetime, end_datetime),
-                                                  details__cart__product__product_seller=seller_user,
-                                                  details__cart__status=True, status=True)
+                                                  payment__details__product__product_seller=seller_user,
+                                                  payment__cancel=True, status=True)
             view_filter_data = order_data(view_all_order)
             return JsonResponse({'message': 'Filter By: Dispatch Date', 'filter_order_date': view_filter_data},
                                 status=200)
@@ -840,8 +852,8 @@ def order_search(request):
             seller_user = Register.objects.get(register_user=user)
             view_all_order = Order.objects.filter(
                 Q(order__icontains=search) | Q(company__icontains=search) | Q(
-                    details__cart__product__product_SKU__icontains=search),
-                details__cart__product__product_seller=seller_user, status=True)
+                    payment__details__product__product_SKU__icontains=search),
+                payment__details__product__product_seller=seller_user, status=True)
             if view_all_order.count() != 0 and search != '':
                 search_data = order_data(view_all_order)
                 return JsonResponse(
@@ -898,13 +910,13 @@ def order_accept(request):
             seller_user = Register.objects.get(register_user=user)
             if not len(key_list) > 1:
                 accept = Order.objects.get(order_key=order_key, status=True,
-                                           details__cart__product__product_seller=seller_user)
+                                           payment__details__product__product_seller=seller_user)
                 accept_order = accept_data(accept)
                 return JsonResponse({'message': 'Order Accept'}, status=200)
             else:
-                for i in key_list:
-                    accept = Order.objects.get(order_key=i, status=True,
-                                               details__cart__product__product_seller=seller_user)
+                for key in key_list:
+                    accept = Order.objects.get(order_key=key, status=True,
+                                               payment__details__product__product_seller=seller_user)
                     accept_order = accept_data(accept)
                 return JsonResponse({'message': 'Order Accept'}, status=200)
         else:
@@ -927,15 +939,15 @@ def ready_to_ship(request):
             seller_user = Register.objects.get(register_user=user)
             view_accept_all_order = Accept.objects.filter(status=True, order__product__product_seller=seller_user)
             accept_orders_data = [{
-                'order_id': i.order.order,
-                'image': i.product.product_images,
-                'name': i.product.product_name,
-                'product_SKU': i.product.product_SKU,
-                'company_id': i.order.company,
-                'quantity': i.qty,
-                'size': i.product.product_size,
-                'dispatch_date': f"{i.order.dispatch_date.day} {i.order.dispatch_date.strftime('%b')}'{i.order.dispatch_date.strftime('%y')}"
-            } for i in view_accept_all_order]
+                'order_id': order.order.order,
+                'image': order.product.product_images,
+                'name': order.product.product_name,
+                'product_SKU': order.product.product_SKU,
+                'company_id': order.order.company,
+                'quantity': order.qty,
+                'size': order.product.product_size,
+                'dispatch_date': f"{order.order.dispatch_date.day} {order.order.dispatch_date.strftime('%b')}'{order.order.dispatch_date.strftime('%y')}"
+            } for order in view_accept_all_order]
             return JsonResponse({'message': 'Ready To Ship', 'accept_order_data': accept_orders_data}, status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
@@ -955,17 +967,18 @@ def label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date):
         tax = label.total * gst3 / 100
     total = tax + label.total
     data = {
-        'customer_name': label.buyer.user_firstname + ' ' + label.buyer.user_lastname,
+        'customer_name': label.buyer.buyer.first_name + ' ' + label.buyer.buyer.last_name,
         'customer_address': label.buyer.user_address,
-        'seller_name': seller_user.first_name + seller_user.last_name,
+        'seller_name': seller_user.register_user.first_name + seller_user.register_user.last_name,
         'seller_address': seller_user.address,
         'product_details': {'product_SKU': label.product.product_SKU, 'size': label.product.product_size,
                             'qty': label.qty,
                             'color': label.product_color, 'order_no': label.order.order},
         'tax_invoice': {'ship_to': (
-            label.order.details.ord_rec_name, label.order.details.street_address,
-            label.order.details.apartment_address, label.order.details.pincode),
-            'sold_by': (seller_user.first_name + seller_user.last_name, seller_user.address),
+            label.order.payment.details.checkout.ord_rec_name, label.order.payment.details.checkout.street_address,
+            label.order.payment.details.checkout.apartment_address, label.order.payment.details.checkout.pincode),
+            'sold_by': (
+                seller_user.register_user.first_name + " " + seller_user.register_user.last_name, seller_user.address),
             'purchase_order_no': purchase_order_no, 'invoice_no': invoice_no, 'order_date': label.order.order_date,
             'invoice_date': invoice_date},
         'description': label.product.product_name, 'qty': label.qty, 'gross_amount': total,
@@ -996,19 +1009,18 @@ def shipping_label(request):
             invoice = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
             purchase_order = random.choices(purchase, k=12)
             purchase_order_no = "".join(purchase_order)
-            invoice_1 = random.choices(purchase + invoice, k=11)
-            invoice_no = "".join(invoice_1)
-            invoice_date = datetime.date.today()
-
+            invoice_key = random.choices(purchase + invoice, k=11)
+            invoice_no = "".join(invoice_key)
+            invoice_date = date.today()
             if len(key_list) == 1:
                 label = Accept.objects.get(accept_key=order_key, status=True,
-                                           order__product__product_seller=seller_user)
+                                           product__product_seller=seller_user)
                 data = label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date)
                 return JsonResponse({'message': 'Shipping Label', 'label_data': data}, status=200)
             else:
                 data_list = []
-                for i in key_list:
-                    label = Accept.objects.get(accept_key=i, status=True, order__product__product_seller=seller_user)
+                for key in key_list:
+                    label = Accept.objects.get(accept_key=key, status=True, product__product_seller=seller_user)
                     data = label_data(label, seller_user, purchase_order_no, invoice_no, invoice_date)
                     data_list.append(data)
                 return JsonResponse({'message': 'Shipping Label', 'label_data': data_list}, status=200)
@@ -1058,13 +1070,13 @@ def cancel_order(request):
             seller_user = Register.objects.get(register_user=user)
             if not len(key_list) > 1:
                 cancel = Order.objects.get(order_key=order_key, status=True,
-                                           details__cart__product__product_seller=seller_user)
+                                           payment__details__product__product_seller=seller_user)
                 order_cancel = cancel_data(cancel)
                 return JsonResponse({'message': 'Order Cancel'}, status=200)
             else:
-                for i in key_list:
-                    cancel = Order.objects.get(order_key=i, status=True,
-                                               details__cart__product__product_seller=seller_user)
+                for key in key_list:
+                    cancel = Order.objects.get(order_key=key, status=True,
+                                               payment__details__product__product_seller=seller_user)
                     order_cancel = cancel_data(cancel)
                 return JsonResponse({'message': 'Order Cancel'}, status=200)
         else:
@@ -1087,14 +1099,14 @@ def cancelled(request):
             seller_user = Register.objects.get(register_user=user)
             view_cancel_all_order = Cancel.objects.filter(status=True, order__product__product_seller=seller_user)
             cancel_orders_data = [{
-                'image': i.product.product_images,
-                'name': i.product.product_name,
-                'order_id': i.order.order,
-                'product_SKU': i.product.product_SKU,
-                'company_id': i.order.company,
-                'quantity': i.qty,
-                'size': i.product.product_size,
-            } for i in view_cancel_all_order]
+                'image': order.product.product_images,
+                'name': order.product.product_name,
+                'order_id': order.order.order,
+                'product_SKU': order.product.product_SKU,
+                'company_id': order.order.company,
+                'quantity': order.qty,
+                'size': order.product.product_size,
+            } for order in view_cancel_all_order]
             return JsonResponse({'message': 'View Cancelled', 'cancel_order_data': cancel_orders_data}, status=200)
         else:
             return JsonResponse({'message': 'If you are not currently logged in, please login first'}, status=401)
@@ -1106,19 +1118,20 @@ def cancelled(request):
 
 def pricing_data(product, seller_user):
     view_product = []
-    for i in product:
-        orders = Order.objects.filter(product=i, product__product_seller=seller_user)
+    for data in product:
+        orders = Order.objects.filter(product=data, product__product_seller=seller_user)
         total, total_order = 0, 0
         order_comprehension = [
             (total := total + j.total, total_order := total_order + j.qty)
             for j in orders
         ]
         data = {
-            'product_details': {'image': i.product_images, 'name': i.product_name, 'product_SKU': i.product_SKU,
-                                'size': i.product_size},
-            'current_stock': i.product_quantity,
+            'product_details': {'image': data.product_images, 'name': data.product_name,
+                                'product_SKU': data.product_SKU,
+                                'size': data.product_size},
+            'current_stock': data.product_quantity,
             'growth': {'orders': total_order, 'sales': f'₹{total}'},
-            'current_customer_price': i.product_price
+            'current_customer_price': data.product_price
         }
         view_product.append(data)
     return view_product
@@ -1150,8 +1163,8 @@ def pricing(request):
 @permission_classes([IsAuthenticated])
 def edit_pricing(request):
     pricing_key = request.POST['pricing_key']
-    product_price = request.POST['product_price']
-    product_sale_price = request.POST['product_sale_price']
+    product_price = request.POST.get('product_price')
+    product_sale_price = request.POST.get('product_sale_price')
     try:
         user = request.user
         if user:
@@ -1160,12 +1173,14 @@ def edit_pricing(request):
                 if pricing_key.find(char) != -1 or product_price.find(char) != -1 or product_sale_price.find(
                         char) != -1:
                     return JsonResponse({'message': 'ID is not valid'}, status=400)
-            if pricing_key.isalpha() or not product_price.isdigit() or not product_sale_price.isdigit():
+            if pricing_key.isalpha():
                 return JsonResponse({'message': 'ID is not valid'}, status=400)
             seller_user = Register.objects.get(register_user=user)
             edit_product_price = Product.objects.get(product_key=pricing_key, product_seller=seller_user)
-            edit_product_price.product_price = product_price
-            edit_product_price.product_sale_price = product_sale_price
+            if not product_price == '':
+                edit_product_price.product_price = product_price
+            if not product_sale_price == '':
+                edit_product_price.product_sale_price = product_sale_price
             edit_product_price.save()
             return JsonResponse({'message': 'Price Edit Successfully'}, status=200)
         else:
@@ -1210,14 +1225,14 @@ def filter_category(request):
 def date_growth(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
+    start_time = time(00, 00, 00)
+    end_time = time(23, 59, 59)
     try:
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
-            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
+            start_datetime = datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             filter_product = Product.objects.filter(product_date__range=(start_datetime, end_datetime),
                                                     product_seller=seller_user)
             view_product_data = pricing_data(filter_product, seller_user)
@@ -1234,18 +1249,18 @@ def date_growth(request):
 
 def return_data(return_order):
     view_returns = [{
-        'images': i.order.cart.product.product_images,
-        'name': i.order.cart.product.product_name,
-        'product_SKU': i.order.cart.product.product_SKU,
-        'category': i.order.cart.product.product_category,
-        'qty': i.order.cart.qty,
-        'size': i.order.cart.product_size,
-        'order_id': i.order.order,
-        'return _reason': i.order_return_message,
-        'return_shipping_fee': f'₹{i.return_shipping_Fee}',
-        'created_date': f"{i.return_date.day} {i.return_date.strftime('%b')}'{i.return_date.strftime('%y')}",
-        'return_id': i.returns,
-    } for i in return_order]
+        'images': order.order.details.product.product_images,
+        'name': order.order.details.product.product_name,
+        'product_SKU': order.order.details.product.product_SKU,
+        'category': order.order.details.product.product_category,
+        'qty': order.order.details.qty,
+        'size': order.order.details.product.product_size,
+        'order_id': order.order.order_key,
+        'return _reason': order.order_return_message,
+        'return_shipping_fee': f'₹{order.return_shipping_Fee}',
+        'created_date': f"{order.return_date.day} {order.return_date.strftime('%b')}'{order.return_date.strftime('%y')}",
+        'return_id': order.returns,
+    } for order in return_order]
     return view_returns
 
 
@@ -1259,7 +1274,7 @@ def return_tracking(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            return_order = Return.objects.filter(order__cart__product__product_seller=seller_user)
+            return_order = Return.objects.filter(order__details__product__product_seller=seller_user)
             view_returns_data = return_data(return_order)
             return JsonResponse({'message': 'Tracking Return', 'return_product_data': view_returns_data}, status=200)
         else:
@@ -1280,10 +1295,10 @@ def return_overview(request):
             seller_user = Register.objects.get(register_user=user)
             product = Product.objects.filter(product_seller=seller_user)
             view_returns_data = []
-            for i in product:
-                return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
-                                                     order__cart__product__product=i.product)
-                order = Accept.objects.filter(product__product=i.product, product__product_seller=seller_user)
+            for data in product:
+                return_order = Return.objects.filter(order__details__product__product_seller=seller_user,
+                                                     order__details__product__product=data.product)
+                order = Accept.objects.filter(product__product=data.product, product__product_seller=seller_user)
                 total, total_order = 0, 0
                 for k in order:
                     total_order += k.qty
@@ -1296,9 +1311,9 @@ def return_overview(request):
                     return_order_total = '-'
                     return_returns_total = '0.0'
                 data = {
-                    'image': i.product_images,
-                    'name': i.product_name,
-                    'category': i.product_category,
+                    'image': data.product_images,
+                    'name': data.product_name,
+                    'category': data.product_category,
                     'return_order': return_order_total,
                     'returns': f'{return_returns_total}%',
                 }
@@ -1322,8 +1337,8 @@ def return_filter_category(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
-                                                 order__cart__product__product_category=category)
+            return_order = Return.objects.filter(order__details__product__product_seller=seller_user,
+                                                 order__details__product__product_category=category)
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
             for char in symbol:
                 if category.find(char) != -1:
@@ -1346,16 +1361,16 @@ def return_filter_category(request):
 def return_filter_date(request):
     start_date = request.POST.get('start_date')
     end_date = request.POST.get('end_date')
-    start_time = datetime.time(00, 00, 00)
-    end_time = datetime.time(23, 59, 59)
+    start_time = time(00, 00, 00)
+    end_time = time(23, 59, 59)
     try:
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
-            end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
+            start_datetime = datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
+            end_datetime = datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
             return_order = Return.objects.filter(return_date__range=(start_datetime, end_datetime),
-                                                 order__cart__product__product_seller=seller_user)
+                                                 order__details__product__product_seller=seller_user)
             view_returns_data = return_data(return_order)
             return JsonResponse({'message': 'Filter By: Return Date', 'filter_data': view_returns_data}, status=200)
         else:

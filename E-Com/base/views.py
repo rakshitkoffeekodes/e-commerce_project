@@ -232,12 +232,13 @@ def user_insert_address(request):
         user = request.user
         if user.is_authenticated:
             buyer_user = BuyerRegistration.objects.get(buyer=user)
-            member = Checkout_details(street_address=checkout_street_address,
-                                      apartment_address=checkout_apartment_address,
-                                      pincode=checkout_pincode, city=checkout_city,
-                                      ord_rec_mobile_no=checkout_order_receiver_mobile_no,
-                                      select_state=checkout_select_state, ord_rec_name=checkout_order_receiver_name,
-                                      buyer=buyer_user)
+            member = Buyer_checkout_details(street_address=checkout_street_address,
+                                            apartment_address=checkout_apartment_address,
+                                            pincode=checkout_pincode, city=checkout_city,
+                                            ord_rec_mobile_no=checkout_order_receiver_mobile_no,
+                                            select_state=checkout_select_state,
+                                            ord_rec_name=checkout_order_receiver_name,
+                                            buyer=buyer_user)
             member.save()
             serializer = BuyerAddressSerializer(member)
             return Response({"message": " user  address successfully insert.", "data": serializer.data}, status=200)
@@ -262,7 +263,7 @@ def user_view_address(request):
             buyer_user = BuyerRegistration.objects.get(buyer=user)
 
             # Get checkout details for the buyer
-            member = Checkout_details.objects.filter(buyer=buyer_user)
+            member = Buyer_checkout_details.objects.filter(buyer=buyer_user)
 
             if member.exists():
                 serializer = BuyerAddressSerializer(member, many=True)
@@ -294,7 +295,7 @@ def user_update_address(request):
 
     try:
         # Validate the address ID
-        max_accept_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        max_accept_id = Buyer_checkout_details.objects.aggregate(Max('address'))['address__max']
         if not 1 <= int(checkout_address) <= max_accept_id:
             return Response(f"Invalid address. Please provide a valid ID less than or equal to {max_accept_id}.")
 
@@ -308,7 +309,7 @@ def user_update_address(request):
         if user.is_authenticated:
             buyer_user = BuyerRegistration.objects.get(buyer=user)
             # Get specific checkout detail based on address and buyer
-            member = Checkout_details.objects.get(address=checkout_address, buyer=buyer_user)
+            member = Buyer_checkout_details.objects.get(address=checkout_address, buyer=buyer_user)
             if not checkout_street_address == '':
                 member.street_address = checkout_street_address
             if not checkout_apartment_address == '':
@@ -332,8 +333,8 @@ def user_update_address(request):
     except BuyerRegistration.DoesNotExist:
         return Response({"error": f"Error in user address insert: {BuyerRegistration.__name__}"}, status=404)
 
-    except Checkout_details.DoesNotExist:
-        return Response({"error": f"Error in address profile update: {Checkout_details.__name__}"}, status=404)
+    except Buyer_checkout_details.DoesNotExist:
+        return Response({"error": f"Error in address profile update: {Buyer_checkout_details.__name__}"}, status=404)
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
@@ -351,7 +352,7 @@ def user_delete_address(request):
             return Response({"error": "Invalid or missing address_id. Please provide a valid ID."}, status=400)
 
         # Validate address_id range
-        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        max_address_id = Buyer_checkout_details.objects.aggregate(Max('address'))['address__max']
         if not 1 <= int(checkout_address) <= max_address_id:
             return Response(f"Invalid address_id. Please provide a valid ID less than or equal to {max_address_id}.",
                             status=400)
@@ -359,7 +360,7 @@ def user_delete_address(request):
         user = request.user
         if user.is_authenticated:
             buyer_user = BuyerRegistration.objects.get(buyer=user)
-            member = Checkout_details.objects.get(address=checkout_address, buyer=buyer_user)
+            member = Buyer_checkout_details.objects.get(address=checkout_address, buyer=buyer_user)
             member.delete()
 
             return Response({"message": "User address successfully deleted."}, status=200)
@@ -369,8 +370,9 @@ def user_delete_address(request):
     except BuyerRegistration.DoesNotExist:
         return Response({"error": f"Error in user address insert: {BuyerRegistration.__name__}"}, status=404)
 
-    except Checkout_details.DoesNotExist:
-        return Response({"error": f"Error: User profile not found with address_id {Checkout_details}"}, status=404)
+    except Buyer_checkout_details.DoesNotExist:
+        return Response({"error": f"Error: User profile not found with address_id {Buyer_checkout_details}"},
+                        status=404)
 
     except Exception as e:
         return Response({"error": f"Error: {e}"}, status=500)
@@ -460,7 +462,7 @@ def user_update_cart(request):
             return Response({"message": "Invalid qty number. Qty should be between 1 and 100."}, status=400)
 
         # Validate cart ID
-        max_address_id = Checkout_details.objects.aggregate(Max('cart'))['cart__max']
+        max_address_id = Buyer_checkout_details.objects.aggregate(Max('cart'))['cart__max']
         if not 1 <= int(user_cart) <= max_address_id:
             return Response(f"Invalid cart. Please provide a valid ID less than or equal to {max_address_id}.",
                             status=400)
@@ -521,8 +523,8 @@ def user_delete_cart(request):
     except BuyerRegistration.DoesNotExist:
         return Response({"error": f"Error in  cart  delete: {Product.__name__}"}, status=404)
 
-    except Checkout_details.DoesNotExist:
-        return Response({"error": f"user Invalid id select {Checkout_details.__name__}"}, status=404)
+    except Buyer_checkout_details.DoesNotExist:
+        return Response({"error": f"user Invalid id select {Buyer_checkout_details.__name__}"}, status=404)
 
     except Exception as e:
         return Response({"error": e.__str__()}, status=404)
@@ -538,7 +540,7 @@ def user_insert_buynow(request):
     qty = request.POST['qty']
     try:
         # Validate quantity, product ID, and Checkout ID
-        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        max_address_id = Buyer_checkout_details.objects.aggregate(Max('address'))['address__max']
         max_product_id = Product.objects.aggregate(Max('id'))['id__max']
 
         if not 1 <= int(qty) <= 100 or not qty.isdigit():
@@ -554,7 +556,7 @@ def user_insert_buynow(request):
 
         # buyer_user = BuyerRegistration.objects.get(user_email_id=request.session['user_email_id'])
         product_data = Product.objects.get(id=user_product)
-        checkout_data = Checkout_details.objects.get(address=user_checkout)
+        checkout_data = Buyer_checkout_details.objects.get(address=user_checkout)
         total = int(qty) * product_data.product_price
 
         user = request.user
@@ -575,7 +577,7 @@ def user_insert_buynow(request):
     except Product.DoesNotExist:
         return Response({"error": "Product not found."}, status=404)
 
-    except Checkout_details.DoesNotExist:
+    except Buyer_checkout_details.DoesNotExist:
         return Response({"error": "Checkout details not found."}, status=404)
 
     except Exception as e:
@@ -592,7 +594,7 @@ def user_insert_cart_buynow(request):
 
     try:
         # Validate cart ID and checkout address
-        max_address_id = Checkout_details.objects.aggregate(Max('address'))['address__max']
+        max_address_id = Buyer_checkout_details.objects.aggregate(Max('address'))['address__max']
         max_card_id = BuyerCart.objects.aggregate(Max('Cart'))['Cart__max']
 
         if not 1 <= int(user_cart) <= max_card_id:
@@ -604,7 +606,7 @@ def user_insert_cart_buynow(request):
                             status=400)
         # Get cart and checkout details based on provided IDs
         cart = BuyerCart.objects.get(pk=user_cart)
-        checkout = Checkout_details.objects.get(address=user_checkout)
+        checkout = Buyer_checkout_details.objects.get(address=user_checkout)
         user = request.user
         if user.is_authenticated:
             buyer_user = BuyerRegistration.objects.get(buyer=user)

@@ -1,15 +1,6 @@
-<<<<<<< HEAD
-# from buyer.model import *
-# from . import BuyerRegistration
-=======
-from django.contrib.auth.models import User
-
-from base.models import *
->>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
 from django.db import models
 from base.models import *
-from base.models import *
-from base.models import Checkout_details
+from base.models import BuyerPayment, BuyerRegistration
 
 
 # from base.models import Checkout_details, BuyerRegistration
@@ -83,7 +74,7 @@ class Product(models.Model):
 
 class Order(models.Model):
     order_key = models.AutoField(primary_key=True)
-    details = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
+    payment = models.ForeignKey(BuyerPayment, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     qty = models.IntegerField(default=0)
