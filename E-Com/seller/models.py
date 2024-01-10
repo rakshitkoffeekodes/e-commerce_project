@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 # from buyer.model import *
 # from . import BuyerRegistration
@@ -9,6 +10,11 @@ from django.db import models
 from base.models import *
 from base.models import *
 from base.models import BuyerCheckout_details
+=======
+from django.db import models
+from base.models import *
+from base.models import BuyerPayment, BuyerRegistration
+>>>>>>> 2d4d80ad731024b1962777daa941ef1894308664
 
 
 # from base.models import Checkout_details, BuyerRegistration
@@ -82,7 +88,11 @@ class Product(models.Model):
 
 class Order(models.Model):
     order_key = models.AutoField(primary_key=True)
+<<<<<<< HEAD
     details = models.ForeignKey(BuyerCheckout_details, on_delete=models.CASCADE)
+=======
+    payment = models.ForeignKey(BuyerPayment, on_delete=models.CASCADE)
+>>>>>>> 2d4d80ad731024b1962777daa941ef1894308664
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     qty = models.IntegerField(default=0)
