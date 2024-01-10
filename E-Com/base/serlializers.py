@@ -39,7 +39,7 @@ class BuyerAddressSerializer(serializers.ModelSerializer):
     cart = ()
 
     class Meta:
-        model = Checkout_details
+        model = BuyerCheckout_details
         fields = '__all__'
 
 
@@ -57,5 +57,5 @@ class BuyerPaymentSerializer(serializers.ModelSerializer):
 
 class ReturnSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Return
+        model = BuyerReturn
         fields = '__all__'

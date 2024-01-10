@@ -717,13 +717,11 @@ def order_data(view_all_order):
     return view_order
 
 
-<<<<<<< HEAD
+
 class Payment:
     pass
 
-=======
-# ==========This function is for pending order==========
->>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
+
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -1259,7 +1257,7 @@ def return_tracking(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            return_order = Return.objects.filter(order__cart__product__product_seller=seller_user)
+            return_order = BuyerReturn.objects.filter(order__cart__product__product_seller=seller_user)
             view_returns_data = return_data(return_order)
             return JsonResponse({'message': 'Tracking Return', 'return_product_data': view_returns_data}, status=200)
         else:
@@ -1281,8 +1279,8 @@ def return_overview(request):
             product = Product.objects.filter(product_seller=seller_user)
             view_returns_data = []
             for i in product:
-                return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
-                                                     order__cart__product__product=i.product)
+                return_order = BuyerReturn.objects.filter(order__cart__product__product_seller=seller_user,
+                                                          order__cart__product__product=i.product)
                 order = Accept.objects.filter(product__product=i.product, product__product_seller=seller_user)
                 total, total_order = 0, 0
                 for k in order:
@@ -1322,8 +1320,8 @@ def return_filter_category(request):
         user = request.user
         if user:
             seller_user = Register.objects.get(register_user=user)
-            return_order = Return.objects.filter(order__cart__product__product_seller=seller_user,
-                                                 order__cart__product__product_category=category)
+            return_order = BuyerReturn.objects.filter(order__cart__product__product_seller=seller_user,
+                                                      order__cart__product__product_category=category)
             symbol = "~", "!", "#", "$", "%", "^", "&", "*", "@"
             for char in symbol:
                 if category.find(char) != -1:
@@ -1354,8 +1352,8 @@ def return_filter_date(request):
             seller_user = Register.objects.get(register_user=user)
             start_datetime = datetime.datetime.strptime(f'{start_date} {start_time}', "%Y-%m-%d %H:%M:%S")
             end_datetime = datetime.datetime.strptime(f'{end_date} {end_time}', "%Y-%m-%d %H:%M:%S")
-            return_order = Return.objects.filter(return_date__range=(start_datetime, end_datetime),
-                                                 order__cart__product__product_seller=seller_user)
+            return_order = BuyerReturn.objects.filter(return_date__range=(start_datetime, end_datetime),
+                                                      order__cart__product__product_seller=seller_user)
             view_returns_data = return_data(return_order)
             return JsonResponse({'message': 'Filter By: Return Date', 'filter_data': view_returns_data}, status=200)
         else:

@@ -38,7 +38,7 @@ class BuyerCart(models.Model):
         db_table = "Buyer_Cart"
 
 
-class Checkout_details(models.Model):
+class BuyerCheckout_details(models.Model):
     address = models.AutoField(primary_key=True)
     street_address = models.CharField(max_length=100)
     apartment_address = models.CharField(max_length=100)
@@ -64,12 +64,11 @@ class Checkout_details(models.Model):
     ord_rec_name = models.CharField(max_length=255)
     ord_rec_mobile_no = models.CharField(max_length=12)
     status = models.BooleanField(default=True)
-<<<<<<< HEAD
+
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE, null=True)
     cart = models.ForeignKey(BuyerCart, on_delete=models.CASCADE, null=True)
 
-=======
->>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
+
     def __str__(self):
         return str(self.buyer)
 
@@ -85,7 +84,7 @@ class BuyerPurchase(models.Model):
     product = models.ForeignKey("seller.Product", on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
     cart = models.ForeignKey(BuyerCart, on_delete=models.CASCADE,null=True)
-    checkout = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
+    checkout = models.ForeignKey(BuyerCheckout_details, on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.buyer) + " " + str(self.product)
@@ -138,7 +137,7 @@ class BuyerFeedback(models.Model):
 
 
 
-class Return(models.Model):
+class BuyerReturn(models.Model):
     order_return = models.AutoField(primary_key=True)
     returns = models.CharField(max_length=100)
     order_return_message = models.CharField(max_length=100, null='N/A')
@@ -151,20 +150,10 @@ class Return(models.Model):
     def __str__(self):
         return f"{self.order} {self.buyer}"
 
-<<<<<<< HEAD
+
     class Meta:
         db_table = "Buyer_Return"
-=======
 
-class BuyerFeedback(models.Model):
-    feedback_id = models.AutoField(primary_key=True, null=False)
-    feedback_login = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
-    feedback_product = models.ForeignKey("seller.Product", on_delete=models.CASCADE, null=True)
-    feedback_description = models.TextField(max_length=500)
-    feedback_datetime = models.DateTimeField(auto_now_add=True)
-    feedback_rating = models.IntegerField()
-    feedback_photo = models.FileField(upload_to='buyer/', null=True)
 
-    def __str__(self):
-        return str(self.feedback_login)
->>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
+
+

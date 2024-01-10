@@ -30,7 +30,7 @@ urlpatterns = [
     path("user_return_order", views.user_return_order, name="user_return_order"),
     path("user_view_return", views.user_view_return, name="user_view_return"),
     path("user_view_product_clothe", views.user_view_product_clothe, name="user_view_product_clothe"),
-    # path("user_view_return", views.user_view_return, name="user_view_return"),
+    path("user_logout", views.user_logout, name="user_logout"),
     # path("user_view_return", views.user_view_return, name="user_view_return"),
 
 
