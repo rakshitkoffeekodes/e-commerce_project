@@ -3,10 +3,15 @@
 from django.db import models
 from base.models import *
 from base.models import *
+from base.models import Checkout_details
+
+
+# from base.models import Checkout_details, BuyerRegistration
 
 
 class Register(models.Model):
     profile_picture = models.FileField(upload_to="media/", default="default.jpg")
+    username = models.CharField(max_length=20, unique=True, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
@@ -63,6 +68,7 @@ class Product(models.Model):
     product_color = models.CharField(max_length=50)
     product_fabric = models.CharField(max_length=50)
     product_description = models.TextField()
+    product_stock = models.CharField(max_length=20, default='Is Stock')
     product_date = models.DateTimeField(null=True)
     product = models.CharField(max_length=50, null=True)
     product_seller = models.ForeignKey(Register, on_delete=models.CASCADE)

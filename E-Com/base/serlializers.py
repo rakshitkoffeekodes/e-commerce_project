@@ -1,8 +1,6 @@
-from django.db.models import fields
-from rest_framework import serializers
 from .models import *
 from django.contrib.auth.models import User
-import datetime
+from rest_framework import serializers
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -11,28 +9,12 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['username', 'first_name', 'last_name', 'email']
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class BuyerRegistrationSerializer(serializers.ModelSerializer):
     buyer = UserSerializer()
 
     class Meta:
         model = BuyerRegistration
-        fields = ['buyer', 'user_photo', 'user_mobile_no', 'user_id']
-        # fields = '__all__'
-
-
-# class UserSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = User
-#         fields = ['username', 'first_name', 'last_name', 'email']
-#
-#
-#
-# class RegisterSerializer(serializers.ModelSerializer):
-#     register_user = UserSerializer()
-#
-#     class Meta:
-#         model = BuyerRegistration
-#         fields = ['buyer', 'user_address', 'user_photo', 'user_mobile_no']
+        fields = ['user', 'user_address', 'user_photo', 'user_mobile_no', 'buyer']
 
 
 class BuyerCartSerializer(serializers.ModelSerializer):
@@ -70,12 +52,6 @@ class BuyerFeedbackSerializer(serializers.ModelSerializer):
 class BuyerPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = BuyerPayment
-        fields = '__all__'
-
-
-class BuyerOrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BuyerOrder
         fields = '__all__'
 
 
