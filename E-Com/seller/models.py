@@ -1,5 +1,11 @@
+<<<<<<< HEAD
 # from buyer.model import *
 # from . import BuyerRegistration
+=======
+from django.contrib.auth.models import User
+
+from base.models import *
+>>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
 from django.db import models
 from base.models import *
 from base.models import *
@@ -10,17 +16,14 @@ from base.models import Checkout_details
 
 
 class Register(models.Model):
+    register_key = models.AutoField(primary_key=True)
+    register_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     profile_picture = models.FileField(upload_to="media/", default="default.jpg")
-    username = models.CharField(max_length=20, unique=True, null=True)
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
     mobile_no = models.CharField(unique=True, max_length=10, default='+ 91')
     address = models.TextField()
-    password = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.first_name + " " + self.last_name
+        return str(self.register_user)
 
 
 class Product(models.Model):
@@ -54,8 +57,9 @@ class Product(models.Model):
                     ('HOSE NOZZLES', 'HOSE NOZZLES'), ('GARDEN FAUCETS', 'GARDEN FAUCETS'),
                     ('WATER PUMPS', 'WATER PUMPS'), ('GARDEN SPRAY', 'GARDEN SPRAY')))
     ]
+    product_key = models.AutoField(primary_key=True)
     product_images = models.JSONField()
-    SKU = models.CharField(max_length=50)
+    product_SKU = models.CharField(max_length=50)
     product_name = models.CharField(max_length=100)
     product_price = models.IntegerField(blank=False)
     product_sale_price = models.IntegerField(blank=False)
@@ -78,6 +82,7 @@ class Product(models.Model):
 
 
 class Order(models.Model):
+    order_key = models.AutoField(primary_key=True)
     details = models.ForeignKey(Checkout_details, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
@@ -96,6 +101,7 @@ class Order(models.Model):
 
 
 class Accept(models.Model):
+    accept_key = models.AutoField(primary_key=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
@@ -110,6 +116,7 @@ class Accept(models.Model):
 
 
 class Cancel(models.Model):
+    cancel_key = models.AutoField(primary_key=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)

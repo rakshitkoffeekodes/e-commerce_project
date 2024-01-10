@@ -64,9 +64,12 @@ class Checkout_details(models.Model):
     ord_rec_name = models.CharField(max_length=255)
     ord_rec_mobile_no = models.CharField(max_length=12)
     status = models.BooleanField(default=True)
+<<<<<<< HEAD
     buyer = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE, null=True)
     cart = models.ForeignKey(BuyerCart, on_delete=models.CASCADE, null=True)
 
+=======
+>>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
     def __str__(self):
         return str(self.buyer)
 
@@ -148,5 +151,20 @@ class Return(models.Model):
     def __str__(self):
         return f"{self.order} {self.buyer}"
 
+<<<<<<< HEAD
     class Meta:
         db_table = "Buyer_Return"
+=======
+
+class BuyerFeedback(models.Model):
+    feedback_id = models.AutoField(primary_key=True, null=False)
+    feedback_login = models.ForeignKey(BuyerRegistration, on_delete=models.CASCADE)
+    feedback_product = models.ForeignKey("seller.Product", on_delete=models.CASCADE, null=True)
+    feedback_description = models.TextField(max_length=500)
+    feedback_datetime = models.DateTimeField(auto_now_add=True)
+    feedback_rating = models.IntegerField()
+    feedback_photo = models.FileField(upload_to='buyer/', null=True)
+
+    def __str__(self):
+        return str(self.feedback_login)
+>>>>>>> 0d8cd30df35de66cc409016e0b4ae856395dde01
